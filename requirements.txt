@@ -1,0 +1,12 @@
+# web server with Flask and Bootstrap4
+pyFlaskBootstrap4>=0.2.13
+flask-dropzone
+# https://github.com/SmartDataAnalytics/OpenResearch
+#ToDo: Update to 0.0.24 ASAP
+ConferenceCorpus>=0.0.23
+# https://pypi.org/project/wikirender/
+wikirender>=0.0.31
+# https://pypi.org/project/pylodstorage/
+pylodstorage>=0.0.69
+lxml #ToDo: seems to be missing in one of the imported modules
+bs4
