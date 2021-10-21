@@ -1,18 +1,17 @@
-import json
 import os
-from functools import partial
-from os.path import expanduser
-from typing import Optional, List
-
+import json
 import requests
-from SPARQLWrapper import CSV
-from corpus.datasources.openresearch import OR
+from os import path
+from io import BytesIO
+from typing import List
 from fb4.app import AppWrap
-from flask import request, flash, send_file
+from functools import partial
+from flask import request, send_file
 from wikibot.wikiuser import WikiUser
-from wikifile.wikiFileManager import WikiFileManager
 from corpus.lookup import CorpusLookup
-from tempfile import TemporaryDirectory
+from corpus.datasources.openresearch import OR
+from wikifile.wikiFileManager import WikiFileManager
+
 
 
 class WebServer(AppWrap):
@@ -20,7 +19,7 @@ class WebServer(AppWrap):
     RESTful api to access and modify OPENRESAECH data
     """
 
-    def __init__(self,wikiId:str, host='0.0.0.0', port=8558, verbose=True, debug=False):
+    def __init__(self,wikiId:str, wikiTextPath:str, host='0.0.0.0', port=8558, verbose=True, debug=False):
         '''
         constructor
 
@@ -34,6 +33,7 @@ class WebServer(AppWrap):
         self.debug = debug
         self.verbose = verbose
         self.wikiUser=WikiUser.ofWikiId(wikiId)
+        self.wikiTextPath=wikiTextPath
         scriptdir = os.path.dirname(os.path.abspath(__file__))
         template_folder = scriptdir + '/../templates'
         super().__init__(host=host, port=port, debug=debug, template_folder=template_folder)
@@ -41,7 +41,6 @@ class WebServer(AppWrap):
         self.app.app_context().push()
         self.targetWiki="http://localhost:8000"
         self.initOpenResearch()
-        self.csvFileBacklog=TemporaryDirectory(prefix="orapi_csv_")
 
         @self.app.route('/')
         def index():
@@ -55,9 +54,6 @@ class WebServer(AppWrap):
             else:
                 return self.updateEventsOfSeries(series)
 
-        @self.app.teardown_appcontext
-        def teardown():
-            self.csvFileBacklog.cleanup()
 
     @property
     def wikiId(self):
@@ -69,26 +65,11 @@ class WebServer(AppWrap):
 
     def initOpenResearch(self):
         """Inits the OPENRESEARCH data from ConferenceCorpus as loaded datasource"""
-        wikiFileManager=WikiFileManager(sourceWikiId=self.wikiId, debug=self.debug)
-        patchEventSource = partial(self.patchEventSource, wikiFileManager=wikiFileManager)
-        lookup = CorpusLookup(configure=patchEventSource, debug=self.debug)
-        lookup.eventCorpus.addDataSource(OR(wikiId=self.wikiId, via="backup"))
-        lookup.load(forceUpdate=False)  # forceUpdate to init the managers from the markup files
-        self.orDataSource = lookup.getDataSource("orclone-backup")
-
-    def patchEventSource(self, lookup: CorpusLookup, wikiFileManager: WikiFileManager):
-        '''
-        patches the EventManager and EventSeriesManager by adding wikiUser and WikiFileManager
-        '''
-        for lookupId in {"orclone-backup", "or-backup",f"{self.wikiId}-backup"}:  # only from backup since the api is intended to edit the wikimarkup values
-            orDataSource = lookup.getDataSource(lookupId)
-            if orDataSource is not None:
-                if lookupId.endswith("-backup"):
-                    orDataSource.eventManager.smwHandler.wikiFileManager = wikiFileManager
-                    orDataSource.eventSeriesManager.smwHandler.wikiFileManager = wikiFileManager
-                else:
-                    orDataSource.eventManager.smwHandler.wikiUser = wikiFileManager.wikiUser
-                    orDataSource.eventSeriesManager.smwHandler.wikiUser = wikiFileManager.wikiUser
+        wikiFileManager=WikiFileManager(sourceWikiId=self.wikiId,wikiTextPath=self.wikiTextPath, debug=self.debug)
+        self.orDataSource = OR(wikiId=self.wikiId, via="backup")
+        self.orDataSource.eventManager.smwHandler.wikiFileManager = wikiFileManager
+        self.orDataSource.eventSeriesManager.smwHandler.wikiFileManager = wikiFileManager
+        self.orDataSource.load()
 
     def index(self):
         """"""
@@ -99,11 +80,10 @@ class WebServer(AppWrap):
         csvString = ''
         OREventManager = self.orDataSource.eventManager
         csvString = OREventManager.asCsv(selectorCallback=partial(OREventManager.getEventsInSeries, seriesPageTitle))
-        filepath = f"{self.csvFileBacklog}/{seriesPageTitle}.csv"
-        CSV.writeFile(csvString, filepath)
-        if self.debug:
-            print("sending file: ",filepath)
-        return send_file(filepath, as_attachment=True, cache_timeout=-1)
+        buffer = BytesIO()
+        buffer.write(csvString.encode())
+        buffer.seek(0)
+        return send_file(buffer,attachment_filename=f"{seriesPageTitle}.csv", as_attachment=True, mimetype='text/csv')
 
     def updateEventsOfSeries(self, seriesPageTitle:str):
         """
@@ -187,7 +167,8 @@ class WikiUserInfo(object):
 
 if __name__ == '__main__':
     # construct the web application
-    web=WebServer(wikiId="myor")
+    home=path.expanduser("~")
+    web=WebServer(wikiId="myor",wikiTextPath=f"{home}/.or/generated/orfixed")
     parser = web.getParser(description="dblp conference webservice")
     args = parser.parse_args()
     web.optionalDebug(args)
