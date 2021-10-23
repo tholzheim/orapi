@@ -6,13 +6,12 @@ from io import BytesIO
 from typing import List
 from fb4.app import AppWrap
 from functools import partial
-from flask import request, send_file
+from lodstorage.lod import LOD
 from wikibot.wikiuser import WikiUser
-from corpus.lookup import CorpusLookup
+from orapi.odsDocument import OdsDocument
 from corpus.datasources.openresearch import OR
 from wikifile.wikiFileManager import WikiFileManager
-
-
+from flask import request, send_file, redirect, render_template, flash
 
 class WebServer(AppWrap):
     """
@@ -35,24 +34,32 @@ class WebServer(AppWrap):
         self.wikiUser=WikiUser.ofWikiId(wikiId)
         self.wikiTextPath=wikiTextPath
         scriptdir = os.path.dirname(os.path.abspath(__file__))
-        template_folder = scriptdir + '/../templates'
+        template_folder = scriptdir + '/resources/templates'
         super().__init__(host=host, port=port, debug=debug, template_folder=template_folder)
         self.app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///:memory:'
         self.app.app_context().push()
-        self.targetWiki="http://localhost:8000"
+        self.targetWiki="http://127.0.0.1:8000"
         self.initOpenResearch()
 
         @self.app.route('/')
         def index():
             return self.index()
 
-        @self.app.route('/series/<series>/events',methods=['GET','POST'])
+        @self.app.route('/series/<series>', methods=['GET', 'POST'])
         @self.csrf.exempt
-        def handleEventsOfSeries(series:str):
+        def handleEventsOfSeries(series: str):
             if request.method == 'GET':
-                return self.getEventsOfSeries(series)
+                return self.getSeries(series)
             else:
-                return self.updateEventsOfSeries(series)
+                return self.updateSeries(series)
+
+        # @self.app.route('/series/<series>/events',methods=['GET','POST'])
+        # @self.csrf.exempt
+        # def handleEventsOfSeries(series:str):
+        #     if request.method == 'GET':
+        #         return self.getEventsOfSeries(series)
+        #     else:
+        #         return self.updateEventsOfSeries(series)
 
 
     @property
@@ -65,11 +72,14 @@ class WebServer(AppWrap):
 
     def initOpenResearch(self):
         """Inits the OPENRESEARCH data from ConferenceCorpus as loaded datasource"""
-        wikiFileManager=WikiFileManager(sourceWikiId=self.wikiId,wikiTextPath=self.wikiTextPath, debug=self.debug)
+        self.wikiFileManager=WikiFileManager(sourceWikiId=self.wikiId,wikiTextPath=self.wikiTextPath,targetWikiId=self.wikiId, debug=self.debug)
         self.orDataSource = OR(wikiId=self.wikiId, via="backup")
-        self.orDataSource.eventManager.smwHandler.wikiFileManager = wikiFileManager
-        self.orDataSource.eventSeriesManager.smwHandler.wikiFileManager = wikiFileManager
+        self.orDataSource.eventManager.smwHandler.wikiFileManager = self.wikiFileManager
+        self.orDataSource.eventSeriesManager.smwHandler.wikiFileManager = self.wikiFileManager
         self.orDataSource.load()
+        for manager in self.orDataSource.eventManager, self.orDataSource.eventSeriesManager:
+            for record in manager.getList():
+                record.smwHandler.wikiFileManager=manager.wikiFileManager
 
     def index(self):
         """"""
@@ -80,10 +90,14 @@ class WebServer(AppWrap):
         csvString = ''
         OREventManager = self.orDataSource.eventManager
         csvString = OREventManager.asCsv(selectorCallback=partial(OREventManager.getEventsInSeries, seriesPageTitle))
-        buffer = BytesIO()
-        buffer.write(csvString.encode())
-        buffer.seek(0)
-        return send_file(buffer,attachment_filename=f"{seriesPageTitle}.csv", as_attachment=True, mimetype='text/csv')
+        if csvString:
+            buffer = BytesIO()
+            buffer.write(csvString.encode())
+            buffer.seek(0)
+            return send_file(buffer,attachment_filename=f"{seriesPageTitle}.csv", as_attachment=True, mimetype='text/csv')
+        else:
+            flash(f'The Event series {seriesPageTitle} does not have any events to download.', 'info')
+            return render_template('errorPage.html', url=request.referrer, title=seriesPageTitle)
 
     def updateEventsOfSeries(self, seriesPageTitle:str):
         """
@@ -95,14 +109,101 @@ class WebServer(AppWrap):
         Returns:
             Outcome of the update procedure (Not clear yet what to display)
         """
-        #ToDo: Update entities of the given series
-        print("update series")
-        wikiUserInfo=WikiUserInfo.fromWiki(self.targetWiki, request)
-        if wikiUserInfo.isVerified():
+        wikiUserInfo=WikiUserInfo("0","Test")#WikiUserInfo.fromWiki(self.targetWiki, request.headers)
+        if wikiUserInfo.isVerified() or True:
+            self.app.logger.info(f'{wikiUserInfo.name} imported csv')
             # apply csv import
-            return seriesPageTitle
+            if request.files:
+                if 'csv' in request.files:
+                    csv = request.files["csv"]
+                    csvString = csv.read().decode('utf-8')
+                    if csvString:
+                        publishToWiki = lambda entity, **kwargs: entity.smwHandler.pushToWiki(f"csv import by {wikiUserInfo.name} over orapi", overwrite=True, wikiFileManager=self.wikiFileManager) if hasattr(entity.smwHandler, 'pushToWiki') and callable(getattr(entity.smwHandler, 'pushToWiki')) else None
+                        self.orDataSource.eventManager.fromCsv(csvString,updateEntitiesCallback=publishToWiki)
+                        return redirect(request.referrer, code=302)
+                    else:
+                        flash('No file is selected', 'info')
+                else:
+                    flash('File is attached to the POST request but has an incorrect name', 'info')
+            else:
+                flash('No file is selected', 'info')
         else:
-            return 'To import data into the wiki you need to be logged in and have editing rights!'
+            self.app.logger.info(f'{wikiUserInfo.name} tried to import csv')
+            flash('To import data into the wiki you need to be logged in and have editing rights!', 'warning')
+        return render_template('errorPage.html', url=request.referrer, title=seriesPageTitle)
+
+    def getSeries(self, series):
+        """
+        Return the series and its events as OpenDocument Spreadsheet
+
+        Args:
+            series: name of the series that should be returned
+
+        Returns:
+
+        """
+        try:
+            seriesLookup=self.orDataSource.eventSeriesManager.getLookup(self.orDataSource.eventSeriesManager.primaryKey, withDuplicates=True)
+            eventSeries=seriesLookup.get(series)
+            seriesTemplateProps = ["pageTitle", *self.orDataSource.eventSeriesManager.clazz.getTemplateParamLookup().values()]
+            eventSeriesRecords=LOD.filterFields([s.__dict__ for s in eventSeries], fields=seriesTemplateProps, reverse=True)
+            doc=OdsDocument(series)
+            doc.addTable(eventSeriesRecords, doc.lod2Table, name="Series", headers=seriesTemplateProps)
+            if len(eventSeriesRecords)==1:
+                seriesAcronym=eventSeriesRecords[0].get("acronym")
+                events=self.orDataSource.eventManager.getEventsInSeries(seriesAcronym)
+                eventRecords=[event.__dict__ for event in events]
+                eventTemplateProps=["pageTitle", *self.orDataSource.eventManager.clazz.getTemplateParamLookup().values()]
+                eventRecords=LOD.filterFields(eventRecords, fields=eventTemplateProps, reverse=True)
+                doc.addTable(eventRecords, doc.lod2Table,name="Events", headers=eventTemplateProps)
+            self.orDataSource.eventManager.getEventsInSeries(series)
+            buffer=doc.toBytesIO()
+            return send_file(buffer, attachment_filename=doc.filename, as_attachment=True, mimetype='application/vnd.oasis.opendocument.spreadsheet')
+        except Exception as e:
+            print(e)
+            flash(f'Something went wrong the requested documetn could not be generated', 'warning')
+            return render_template('errorPage.html', url=request.referrer, title=series)
+
+
+    def updateSeries(self, seriesPageTitle):
+        wikiUserInfo = WikiUserInfo("0", "Test")  # WikiUserInfo.fromWiki(self.targetWiki, request.headers)
+        if wikiUserInfo.isVerified() or True:
+            self.app.logger.info(f'{wikiUserInfo.name} imported csv')
+            # apply csv import
+            if request.files:
+                if 'csv' in request.files:
+                    odsFile = request.files["csv"]
+                    doc=OdsDocument(seriesPageTitle)
+                    doc.loadFromFile(odsFile)
+                    eventsLoD=doc.getLodFromTable("Events")
+                    seriesLoD = doc.getLodFromTable("Series")
+                    def publishEntity(entity, **kwargs):
+                        """
+                        Publishes the given entity to its target wiki.
+                        Args:
+                            entity: OREvent or OREventSeries (or similar event with smwHandler)
+                            **kwargs:
+                        """
+                        smwHandler=entity.smwHandler
+                        if hasattr(smwHandler, 'pushToWiki') and callable(getattr(smwHandler, 'pushToWiki')):
+                            smwHandler.pushToWiki(f"spreadsheet import by {wikiUserInfo.name} through orapi",
+                                                  overwrite=True,
+                                                  wikiFileManager=self.wikiFileManager)
+                    if eventsLoD:
+                        # update events
+                        self.orDataSource.eventManager.updateFromLod(eventsLoD, updateEntitiesCallback=publishEntity)
+                    if seriesLoD:
+                        # update event series
+                        self.orDataSource.eventSeriesManager.updateFromLod(seriesLoD, updateEntitiesCallback=publishEntity)
+                    return redirect(request.referrer, code=302)
+                else:
+                    flash('File is attached to the POST request but has an incorrect name', 'info')
+            else:
+                flash('No file is selected', 'info')
+        else:
+            self.app.logger.info(f'{wikiUserInfo.name} tried to import csv')
+            flash('To import data into the wiki you need to be logged in and have editing rights!', 'warning')
+        return render_template('errorPage.html', url=request.referrer, title=seriesPageTitle)
 
 
 class WikiUserInfo(object):
@@ -122,7 +223,7 @@ class WikiUserInfo(object):
         """
         self.id = id
         self.name = name
-        self.rights = rights
+        self.rights = rights if rights else []
         self.registrationdate = registrationdate
         self.acceptlang = acceptlang
 
@@ -136,7 +237,7 @@ class WikiUserInfo(object):
         return isVerified
 
     @staticmethod
-    def fromWiki(wikiUrl:str, request:request):
+    def fromWiki(wikiUrl:str, headers):
         """Queries the UserInfos for the user of the given request and returns a corresponding WikiUserInfo object
         Args:
             wikiUrl(str): url of the wiki to ask for the user
@@ -152,7 +253,7 @@ class WikiUserInfo(object):
                     'uiprop': 'rights|acceptlang|registrationdate',
                     'format': 'json'},
             url=wikiUrl+ "/api.php",
-            headers={key: value for (key, value) in request.headers if key != 'Host'},
+            headers={key: value for (key, value) in headers if key != 'Host'},
             allow_redirects=False)
         res = json.loads(response.text)
         userInfo={}
@@ -168,7 +269,7 @@ class WikiUserInfo(object):
 if __name__ == '__main__':
     # construct the web application
     home=path.expanduser("~")
-    web=WebServer(wikiId="myor",wikiTextPath=f"{home}/.or/generated/orfixed")
+    web=WebServer(wikiId="wikirenderTest",wikiTextPath=f"{home}/.or/generated/orfixed")
     parser = web.getParser(description="dblp conference webservice")
     args = parser.parse_args()
     web.optionalDebug(args)

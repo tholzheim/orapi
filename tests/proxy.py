@@ -1,4 +1,7 @@
+import io
 import os
+from io import BytesIO
+from tempfile import TemporaryDirectory
 import requests
 from fb4.app import AppWrap
 from flask import request, Response
@@ -73,14 +76,22 @@ class ProxyServer(AppWrap):
         :param kwargs:
         :return:
         """
-        resp = requests.request(
-            method=request.method,
-            params=request.values,
-            url=url,
-            headers={key: value for (key, value) in request.headers if key != 'Host'},
-            data=request.get_data(),
-            cookies=request.cookies,
-            allow_redirects=False)
+        if request.files:
+            files = request.files
+            # for file, f in request.files.items():
+            #     buffer=io.BytesIO(f.stream.read().decode())
+            #     files[file]=(f.filename, buffer, f.mimetype)
+            # If request with file attached use separate request → Had issues otherwise
+            resp=requests.post(url, files=files, cookies=request.cookies, headers={key: value for (key, value) in request.headers if key not in ['Host','Content-Length','Content-Type']}  )
+        else:
+            resp = requests.request(
+                method=request.method,
+                params=request.values,
+                url=url,
+                headers={key: value for (key, value) in request.headers if key != 'Host'},
+                data=request.get_data(),
+                cookies=request.cookies,
+                allow_redirects=False)
 
         excluded_headers = ['content-encoding', 'content-length', 'transfer-encoding', 'connection']
         headers = [(name, value) for (name, value) in resp.raw.headers.items()
