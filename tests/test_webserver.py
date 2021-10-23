@@ -11,4 +11,5 @@ class TestWebServer(TestCase):
 
     def test_verifyUser(self):
         """tests veriying a wiki user"""
+        self.fail()
         #ToDo: Test unregistered user

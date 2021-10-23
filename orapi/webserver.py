@@ -18,7 +18,7 @@ class WebServer(AppWrap):
     RESTful api to access and modify OPENRESAECH data
     """
 
-    def __init__(self,wikiId:str, wikiTextPath:str, host='0.0.0.0', port=8558, verbose=True, debug=False):
+    def __init__(self, host='0.0.0.0', port=8558, verbose=True, debug=False):
         '''
         constructor
 
@@ -27,19 +27,15 @@ class WebServer(AppWrap):
             port(int): the port to use for http connections
             debug(bool): True if debugging should be switched on
             verbose(bool): True if verbose logging should be switched on
-            dblp(Dblp): preconfigured dblp access (e.g. for mock testing)
         '''
         self.debug = debug
         self.verbose = verbose
-        self.wikiUser=WikiUser.ofWikiId(wikiId)
-        self.wikiTextPath=wikiTextPath
         scriptdir = os.path.dirname(os.path.abspath(__file__))
         template_folder = scriptdir + '/resources/templates'
         super().__init__(host=host, port=port, debug=debug, template_folder=template_folder)
         self.app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///:memory:'
         self.app.app_context().push()
-        self.targetWiki="http://127.0.0.1:8000"
-        self.initOpenResearch()
+        self.authenticate=True
 
         @self.app.route('/')
         def index():
@@ -53,14 +49,20 @@ class WebServer(AppWrap):
             else:
                 return self.updateSeries(series)
 
-        # @self.app.route('/series/<series>/events',methods=['GET','POST'])
-        # @self.csrf.exempt
-        # def handleEventsOfSeries(series:str):
-        #     if request.method == 'GET':
-        #         return self.getEventsOfSeries(series)
-        #     else:
-        #         return self.updateEventsOfSeries(series)
+    def init(self,wikiId:str, wikiTextPath:str):
+        """
 
+        Args:
+            wikiId:
+            wikiTextPath:
+
+        Returns:
+
+        """
+        self.wikiUser = WikiUser.ofWikiId(wikiId)
+        self.wikiTextPath = wikiTextPath
+        self.targetWiki = self.wikiUser.getWikiUrl()
+        self.initOpenResearch()
 
     @property
     def wikiId(self):
@@ -76,61 +78,10 @@ class WebServer(AppWrap):
         self.orDataSource = OR(wikiId=self.wikiId, via="backup")
         self.orDataSource.eventManager.smwHandler.wikiFileManager = self.wikiFileManager
         self.orDataSource.eventSeriesManager.smwHandler.wikiFileManager = self.wikiFileManager
-        self.orDataSource.load()
+        self.orDataSource.load(True)
         for manager in self.orDataSource.eventManager, self.orDataSource.eventSeriesManager:
             for record in manager.getList():
                 record.smwHandler.wikiFileManager=manager.wikiFileManager
-
-    def index(self):
-        """"""
-        return "Hello World"
-
-    def getEventsOfSeries(self, seriesPageTitle:str):
-        """Returns the events of the requested series as csv file"""
-        csvString = ''
-        OREventManager = self.orDataSource.eventManager
-        csvString = OREventManager.asCsv(selectorCallback=partial(OREventManager.getEventsInSeries, seriesPageTitle))
-        if csvString:
-            buffer = BytesIO()
-            buffer.write(csvString.encode())
-            buffer.seek(0)
-            return send_file(buffer,attachment_filename=f"{seriesPageTitle}.csv", as_attachment=True, mimetype='text/csv')
-        else:
-            flash(f'The Event series {seriesPageTitle} does not have any events to download.', 'info')
-            return render_template('errorPage.html', url=request.referrer, title=seriesPageTitle)
-
-    def updateEventsOfSeries(self, seriesPageTitle:str):
-        """
-        Updates the events of the series with the provided file
-
-        Args:
-            seriesPageTitle(str): pageTitle of the series to update
-
-        Returns:
-            Outcome of the update procedure (Not clear yet what to display)
-        """
-        wikiUserInfo=WikiUserInfo("0","Test")#WikiUserInfo.fromWiki(self.targetWiki, request.headers)
-        if wikiUserInfo.isVerified() or True:
-            self.app.logger.info(f'{wikiUserInfo.name} imported csv')
-            # apply csv import
-            if request.files:
-                if 'csv' in request.files:
-                    csv = request.files["csv"]
-                    csvString = csv.read().decode('utf-8')
-                    if csvString:
-                        publishToWiki = lambda entity, **kwargs: entity.smwHandler.pushToWiki(f"csv import by {wikiUserInfo.name} over orapi", overwrite=True, wikiFileManager=self.wikiFileManager) if hasattr(entity.smwHandler, 'pushToWiki') and callable(getattr(entity.smwHandler, 'pushToWiki')) else None
-                        self.orDataSource.eventManager.fromCsv(csvString,updateEntitiesCallback=publishToWiki)
-                        return redirect(request.referrer, code=302)
-                    else:
-                        flash('No file is selected', 'info')
-                else:
-                    flash('File is attached to the POST request but has an incorrect name', 'info')
-            else:
-                flash('No file is selected', 'info')
-        else:
-            self.app.logger.info(f'{wikiUserInfo.name} tried to import csv')
-            flash('To import data into the wiki you need to be logged in and have editing rights!', 'warning')
-        return render_template('errorPage.html', url=request.referrer, title=seriesPageTitle)
 
     def getSeries(self, series):
         """
@@ -166,8 +117,11 @@ class WebServer(AppWrap):
 
 
     def updateSeries(self, seriesPageTitle):
-        wikiUserInfo = WikiUserInfo("0", "Test")  # WikiUserInfo.fromWiki(self.targetWiki, request.headers)
-        if wikiUserInfo.isVerified() or True:
+        if self.authenticate:
+            wikiUserInfo = WikiUserInfo.fromWiki(self.targetWiki, request.headers)
+        else:
+            wikiUserInfo = WikiUserInfo("0", "Test")
+        if not self.authenticate or wikiUserInfo.isVerified():
             self.app.logger.info(f'{wikiUserInfo.name} imported csv')
             # apply csv import
             if request.files:
@@ -268,10 +222,13 @@ class WikiUserInfo(object):
 
 if __name__ == '__main__':
     # construct the web application
+    web=WebServer()
     home=path.expanduser("~")
-    web=WebServer(wikiId="wikirenderTest",wikiTextPath=f"{home}/.or/generated/orfixed")
-    parser = web.getParser(description="dblp conference webservice")
+    parser = web.getParser(description="openresearch api to retrieve and edit data")
+    parser.add_argument('--wikiTextPath',default=f"{home}/.or/generated/orfixed", help="location of the wikiMarkup files to be used to initialize the ConferenceCorpus")  #ToDo: Update default value
+    parser.add_argument('-t', '--target', default="wikirenderTest", help="wikiId of the target wiki [default: %(default)s]")
+    parser.add_argument('--verbose', default=True, action="store_true", help="should relevant server actions be logged [default: %(default)s]")
     args = parser.parse_args()
     web.optionalDebug(args)
-    #web.init()
+    web.init(wikiId=args.target,wikiTextPath=args.wikiTextPath)
     web.run(args)
