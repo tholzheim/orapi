@@ -2,11 +2,13 @@
 pyFlaskBootstrap4>=0.2.13
 flask-dropzone
 # https://github.com/SmartDataAnalytics/OpenResearch
-#ToDo: Update to 0.0.24 ASAP
-ConferenceCorpus>=0.0.23
+ConferenceCorpus>=0.0.24
 # https://pypi.org/project/wikirender/
-wikirender>=0.0.31
+wikirender>=0.0.32
 # https://pypi.org/project/pylodstorage/
 pylodstorage>=0.0.69
 lxml #ToDo: seems to be missing in one of the imported modules
 bs4
+
+#https://pypi.org/project/odfpy/
+odfpy
