@@ -1,5 +1,7 @@
 import os
 import json
+import sys
+
 import requests
 from os import path
 from io import BytesIO
@@ -219,8 +221,10 @@ class WikiUserInfo(object):
             wikiUserInfo=WikiUserInfo(**userInfo)
             return wikiUserInfo
 
+DEBUG = False
 
-if __name__ == '__main__':
+def main(argv=None):
+    '''main program.'''
     # construct the web application
     web=WebServer()
     home=path.expanduser("~")
@@ -232,3 +236,6 @@ if __name__ == '__main__':
     web.optionalDebug(args)
     web.init(wikiId=args.target,wikiTextPath=args.wikiTextPath)
     web.run(args)
+
+if __name__ == '__main__':
+    sys.exit(main())
