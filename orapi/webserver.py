@@ -117,7 +117,6 @@ class WebServer(AppWrap):
             flash(f'Something went wrong the requested documetn could not be generated', 'warning')
             return render_template('errorPage.html', url=request.referrer, title=series)
 
-
     def updateSeries(self, seriesPageTitle):
         if self.authenticate:
             wikiUserInfo = WikiUserInfo.fromWiki(self.targetWiki, request.headers)
@@ -129,6 +128,11 @@ class WebServer(AppWrap):
             if request.files:
                 if 'csv' in request.files:
                     odsFile = request.files["csv"]
+                    # check if an file was selected
+                    if not(odsFile and odsFile.stream.read()):
+                        # no or empty file was submitted
+                        return self._returnErrorMsg("Please select a file.", "info", seriesPageTitle)
+                    odsFile.stream.seek(0)
                     doc=OdsDocument(seriesPageTitle)
                     doc.loadFromFile(odsFile)
                     eventsLoD=doc.getLodFromTable("Events")
@@ -153,14 +157,25 @@ class WebServer(AppWrap):
                         self.orDataSource.eventSeriesManager.updateFromLod(seriesLoD, updateEntitiesCallback=publishEntity)
                     return redirect(request.referrer, code=302)
                 else:
-                    flash('File is attached to the POST request but has an incorrect name', 'info')
+                    return self._returnErrorMsg('File is attached to the POST request but has an incorrect name', 'info', seriesPageTitle)
             else:
-                flash('No file is selected', 'info')
+                return self._returnErrorMsg('No file is selected', 'info', seriesPageTitle)
         else:
             self.app.logger.info(f'{wikiUserInfo.name} tried to import csv')
-            flash('To import data into the wiki you need to be logged in and have editing rights!', 'warning')
-        return render_template('errorPage.html', url=request.referrer, title=seriesPageTitle)
+            return self._returnErrorMsg('To import data into the wiki you need to be logged in and have editing rights!', 'warning', seriesPageTitle)
 
+
+    def _returnErrorMsg(self, msg:str, status:str, returnToPage:str):
+        """
+        Returns the given error message as flash message on a html page
+        Args:
+            msg: error message to be displayed
+            returnToPage: pageTitle of the page to return to
+        Returns:
+
+        """
+        flash(msg, status)
+        return render_template('errorPage.html', url=request.referrer, title=returnToPage)
 
 class WikiUserInfo(object):
     """
@@ -230,7 +245,7 @@ def main(argv=None):
     home=path.expanduser("~")
     parser = web.getParser(description="openresearch api to retrieve and edit data")
     parser.add_argument('--wikiTextPath',default=f"{home}/.or/generated/orfixed", help="location of the wikiMarkup files to be used to initialize the ConferenceCorpus")  #ToDo: Update default value
-    parser.add_argument('-t', '--target', default="myor", help="wikiId of the target wiki [default: %(default)s]")
+    parser.add_argument('-t', '--target', default="wikirenderTest", help="wikiId of the target wiki [default: %(default)s]")
     parser.add_argument('--verbose', default=True, action="store_true", help="should relevant server actions be logged [default: %(default)s]")
     args = parser.parse_args()
     web.optionalDebug(args)
