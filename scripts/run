@@ -95,8 +95,8 @@ killifrunning() {
 # start the server
 #
 startServer() {
-  local l_logdir=/var/log/dblpconf
-  local l_logfile=dblpconf.log
+  local l_logdir=/var/log/orapi
+  local l_logfile=orapi.log
   local l_baseUrl="$1"
   local l_debugServer="$2"
   local l_debugPort="$3"
