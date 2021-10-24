@@ -209,7 +209,7 @@ class WikiUserInfo(object):
                     'uiprop': 'rights|acceptlang|registrationdate',
                     'format': 'json'},
             url=wikiUrl+ "/api.php",
-            headers={key: value for (key, value) in headers if key != 'Host'},
+            headers={key: value for (key, value) in headers if key =="Cookie"},
             allow_redirects=False)
         res = json.loads(response.text)
         userInfo={}
