@@ -230,7 +230,7 @@ def main(argv=None):
     home=path.expanduser("~")
     parser = web.getParser(description="openresearch api to retrieve and edit data")
     parser.add_argument('--wikiTextPath',default=f"{home}/.or/generated/orfixed", help="location of the wikiMarkup files to be used to initialize the ConferenceCorpus")  #ToDo: Update default value
-    parser.add_argument('-t', '--target', default="wikirenderTest", help="wikiId of the target wiki [default: %(default)s]")
+    parser.add_argument('-t', '--target', default="myor", help="wikiId of the target wiki [default: %(default)s]")
     parser.add_argument('--verbose', default=True, action="store_true", help="should relevant server actions be logged [default: %(default)s]")
     args = parser.parse_args()
     web.optionalDebug(args)
