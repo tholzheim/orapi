@@ -28,7 +28,7 @@ setup(name='orapi',
           'python-dateutil',
           'ConferenceCorpus>=0.0.26',
           'pyFlaskBootstrap4>=0.2.13',
-          'wikirender>=0.0.32',
+          'wikirender>=0.0.33',
           'flask-dropzone',
           'odfpy'
       ],
