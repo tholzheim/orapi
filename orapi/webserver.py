@@ -1,16 +1,21 @@
+import itertools
 import os
 import json
 import sys
+import uuid
 
 import requests
 from os import path
-from io import BytesIO
 from typing import List
+from corpus.event import EventBaseManager
 from fb4.app import AppWrap
-from functools import partial
+from fb4.sse_bp import SSE_BluePrint
+from fb4.widgets import Widget, LodTable, DropZoneField, ButtonField
+from flask_wtf import FlaskForm
 from lodstorage.lod import LOD
 from wikibot.wikiuser import WikiUser
-from orapi.odsDocument import OdsDocument
+from wtforms import StringField, SelectField, MultipleFileField, SubmitField, FileField, validators, Field
+from orapi.odsDocument import OdsDocument, ExcelDocument
 from corpus.datasources.openresearch import OR
 from wikifile.wikiFileManager import WikiFileManager
 from flask import request, send_file, redirect, render_template, flash
@@ -37,13 +42,25 @@ class WebServer(AppWrap):
         super().__init__(host=host, port=port, debug=debug, template_folder=template_folder)
         self.app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///:memory:'
         self.app.app_context().push()
-        self.authenticate=True
+        self.authenticate=False
+        self.sseBluePrint = SSE_BluePrint(self.app, 'sse')
 
-        @self.app.route('/')
-        def index():
-            return self.index()
+        @self.app.route('/series', methods=['GET', 'POST'])
+        def series():
+            return self.series()
 
-        @self.app.route('/series/<series>', methods=['GET', 'POST'])
+        @self.app.route('/api/series', methods=['POST'])
+        @self.csrf.exempt
+        def uploadSeries():
+            try:
+                for entity in self.updateSeries():
+                    pass
+                return Response("{‘success’:True}", status=200, mimetype='application/json')
+            except Exception as ex:
+                print(ex)
+                return self._returnErrorMsg(ex)
+
+        @self.app.route('/api/series/<series>', methods=['GET'])
         @self.csrf.exempt
         def handleEventsOfSeries(series: str):
             if request.method == 'GET':
@@ -235,6 +252,40 @@ class WikiUserInfo(object):
         if userInfo and 'id' in userInfo and 'name' in userInfo:
             wikiUserInfo=WikiUserInfo(**userInfo)
             return wikiUserInfo
+
+
+
+
+
+class SeriesForm(FlaskForm):
+    """
+    download event series and events as spreadsheet
+    """
+    search = SelectField('search', render_kw={"onchange": "this.form.submit()"},
+                         description="Enter a Event series accronym to select the series for download")
+    download = ButtonField(render_kw={"value": "false", "type": "submit", "onclick":"this.value=true;"})
+    dropzone = DropZoneField(id="files", uploadId="upload", configParams={'acceptedFiles': ".ods, .xlsx"})
+    upload = ButtonField(render_kw={"value": "false", "type": "submit", "onclick":"this.value=true;"})
+
+    def __init__(self, choices:list=[]):
+        super(SeriesForm, self).__init__()
+        self.search.choices=choices
+        self.search.validators=[validators.any_of([v1 for v1,v2 in choices])]
+
+    def downloadSubmitted(self):
+        return self.validate_on_submit() and self.data.get('download', False)=="true" and not self.uploadSubmitted() # download is handled as redirect thus the value is not updated → possible soultion cooldown for value
+
+    def searchSubmitted(self):
+        return self.validate_on_submit() and self.data.get('search', False)
+
+    def uploadSubmitted(self):
+        return self.validate_on_submit() and self.data.get('upload', False) == "true"
+
+    @property
+    def searchValue(self):
+        if hasattr(self, 'data'):
+            return self.data.get('search', "")
+
 
 DEBUG = False
 
