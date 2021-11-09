@@ -1,5 +1,5 @@
 # web server with Flask and Bootstrap4
-pyFlaskBootstrap4>=0.2.18
+pyFlaskBootstrap4>=0.2.19
 flask-dropzone
 # https://github.com/SmartDataAnalytics/OpenResearch
 ConferenceCorpus>=0.0.26
