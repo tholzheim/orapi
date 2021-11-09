@@ -1,22 +1,131 @@
-from io import StringIO, BytesIO
-
-from odf.opendocument import OpenDocumentSpreadsheet
-from odf.style import Style, TextProperties, TableColumnProperties, Map
-from odf.number import NumberStyle, CurrencyStyle, CurrencySymbol,  Number,  Text
-from odf.text import P
-from odf.table import Table, TableColumn, TableRow, TableCell
-from lodstorage.lod import LOD
-from datetime import datetime
-from tabulate import tabulate
-import xml.etree.ElementTree as ET
-from odf.opendocument import load
+import math
+import pandas as pd
 import dateutil.parser as parser
+import xml.etree.ElementTree as ET
+
+from odf.text import P
+from io import BytesIO
+from pandas import Timestamp
+from datetime import datetime
+from lodstorage.lod import LOD
+from odf.opendocument import load
+from pandas._libs.tslibs.nattype import NaTType
+from odf.opendocument import OpenDocumentSpreadsheet
+from odf.table import Table, TableColumn, TableRow, TableCell
+
+
+class ExcelDocument:
+    """
+    Provides methods to convert LoDs to an excel document and vice versa
+    """
+
+    MIME_TYPE = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+
+    def __init__(self, name: str):
+        """
+        Args:
+            name(str): name of the document
+        """
+        self.name = name
+        self.tables={}
+
+    @property
+    def filename(self):
+        return self.name + ".xlsx"
+
+    def getTable(self, name:str):
+        """
+        returns the data corresponding to the given table name
+        Args:
+            name: name of the table
+
+        Returns:
+            LoD
+        """
+        if name in self.tables:
+            return self.tables[name]
+
+    def addTable(self, name:str, lod:list, headers:dict=None):
+        """
+        add the given data as table to the document
+
+        Args:
+            name(str): name of the table
+            lod: data that should be added to the document as table
+            headers(dict): Mapping from dict key to the new headers. Also functions as restriction. If not defined dict key are used as headers
+        """
+        if headers:
+            lod=[{newHeader:record.get(oldHeader, None) for oldHeader, newHeader in headers.items()} for record in lod]
+        self.tables[name]=lod
+
+    def saveToFile(self, name: str = None):
+        """
+        saves the document to a file
+
+        Args:
+            name(str): name of the file. If not given the name of the document is used
+        """
+        if name is None:
+            name = self.filename
+        with pd.ExcelWriter(name, mode="w", engine="xlsxwriter") as writer:
+            for tableName, tableData in self.tables.items():
+                df = pd.DataFrame(tableData)
+                df.to_excel(writer, sheet_name=tableName, index = False)
+
+    def toBytesIO(self) -> BytesIO:
+        """
+        Converts the document into an StringIO stream
+
+        Returns:
+            StringIO Stream of the document
+        """
+        buffer = BytesIO()
+        with pd.ExcelWriter(buffer, engine='xlsxwriter') as writer:
+            for tableName, tableData in self.tables.items():
+                df = pd.DataFrame(tableData)
+                df.to_excel(writer, sheet_name=tableName, index = False)
+        buffer.seek(0)
+        return buffer
+
+    def loadFromFile(self, file):
+        """
+        load the document from the given .ods file
+        Args:
+            file: absolut file path to the file that should be loaded
+
+        Returns:
+
+        """
+        if isinstance(file, str):
+            with open(file, mode="rb") as reader:
+                dfs = pd.read_excel(reader,  sheet_name=None)
+        else:
+            dfs = pd.read_excel(file, sheet_name=None)
+        for tableName, df in dfs.items():
+            headers = list(df.columns)
+            #lod = [{headers[i]: value for i, value in enumerate(record)} for record in df.values]
+            lod = []
+            for record in df.values:
+                d = {}
+                for i, value in enumerate(record):
+                    if isinstance(value, Timestamp):
+                        value = value.to_pydatetime()
+                    elif isinstance(value, float):
+                        if math.isnan(value):
+                            value = None
+                    elif isinstance(value, NaTType):
+                        value = None
+                    d[headers[i]] = value
+                lod.append(d)
+            self.tables[tableName] = lod
 
 class OdsDocument:
     """
     OpenDocument Spreadsheet that can store multiple tables.
     Provides functions to traverse between LoD and ODS document
     """
+    MIME_TYPE = 'application/vnd.oasis.opendocument.spreadsheet'
+
     prefix_map = {
         "office": "urn:oasis:names:tc:opendocument:xmlns:office:1.0",
         "text": "urn:oasis:names:tc:opendocument:xmlns:text:1.0",
@@ -104,8 +213,9 @@ class OdsDocument:
             toTableCallback: function that converts the data to a Table
             kwargs: additional arguments that are forwarded to the toTableCallback
         """
-        table = toTableCallback(data, **kwargs)
-        self.doc.spreadsheet.addElement(table)
+        if data:
+            table = toTableCallback(data, **kwargs)
+            self.doc.spreadsheet.addElement(table)
 
     def saveToFile(self, name: str = None):
         """
@@ -130,7 +240,7 @@ class OdsDocument:
         buffer.seek(0)
         return buffer
 
-    def loadFromFile(self, fileName:str):
+    def loadFromFile(self, fileName):
         """
         load the document from the given .ods file
         Args:
@@ -152,7 +262,8 @@ class OdsDocument:
         """
 
         table=self._getTable(name)
-
+        if not table:
+            return []
         tableRows=table.findall(".//table:table-row", self.prefix_map)
         headers = [cell.get("value") for cell in self._getRowValues(tableRows[0]).values()]
         tableRows=tableRows[1:]
@@ -180,6 +291,18 @@ class OdsDocument:
         xmlDoc=ET.fromstring(self.doc.contentxml())
         table=xmlDoc.find(f".//table:table[@table:name='{name}']", self.prefix_map)
         return table
+
+    def hasTable(self, name:str):
+        """
+        Checks if the document has a table with the given name
+        Args:
+            name: name of the table
+
+        Returns:
+            True if a table with the given name exists
+        """
+        table=self._getTable(name)
+        return
 
     def _getRowValues(self, tableRow):
         """

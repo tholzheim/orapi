@@ -18,7 +18,8 @@ from wtforms import StringField, SelectField, MultipleFileField, SubmitField, Fi
 from orapi.odsDocument import OdsDocument, ExcelDocument
 from corpus.datasources.openresearch import OR
 from wikifile.wikiFileManager import WikiFileManager
-from flask import request, send_file, redirect, render_template, flash
+from flask import request, send_file, redirect, render_template, flash, jsonify, Response
+
 
 class WebServer(AppWrap):
     """
@@ -63,10 +64,9 @@ class WebServer(AppWrap):
         @self.app.route('/api/series/<series>', methods=['GET'])
         @self.csrf.exempt
         def handleEventsOfSeries(series: str):
-            if request.method == 'GET':
-                return self.getSeries(series)
-            else:
-                return self.updateSeries(series)
+            format = request.values.get("format", "json")
+            return self.getSeries(series, format=format, returnTo=request.referrer)
+
 
     def init(self,wikiId:str, wikiTextPath:str):
         """
@@ -102,84 +102,176 @@ class WebServer(AppWrap):
             for record in manager.getList():
                 record.smwHandler.wikiFileManager=manager.wikiFileManager
 
-    def getSeries(self, series):
+        self.eventTemplateProps={"pageTitle":"pageTitle", **{value:key for key, value in self.orDataSource.eventManager.clazz.getTemplateParamLookup().items()}}
+        self.seriesTemplateProps = {"pageTitle":"pageTitle", **{value:key for key, value in self.orDataSource.eventSeriesManager.clazz.getTemplateParamLookup().items()}}
+
+
+    def series(self):
+        seriesChoices = [(getattr(series, 'pageTitle'), getattr(series, 'pageTitle')) for series in self.orDataSource.eventSeriesManager.getList()]
+        downloadForm=SeriesForm(seriesChoices)
+        seriesRecord = None
+        eventRecords = None
+        uploadProgress = None
+        if downloadForm.downloadSubmitted():
+            series = downloadForm.searchValue
+            if series:
+                return redirect(f"/api/series/{series}?format=spreadsheet")
+            else:
+                flash("Please select a event series for download", "info")
+        if downloadForm.uploadSubmitted() and len(request.files)>0:
+            try:
+                generator = self.updateSeries()
+                uploadProgress = self.sseBluePrint.streamDictGenerator(generator=generator)
+            except Exception as ex:
+                print(ex)
+                flash(str(ex), "warning")
+        if downloadForm.searchSubmitted():
+            seriesData = self._getSeries(downloadForm.searchValue)
+            if seriesData:
+                seriesRecord= [seriesData.get('series',[])]
+                eventRecords = list(seriesData.get('events').values())
+
+        return render_template('series.html',
+                               progress=uploadProgress,
+                               downloadForm=downloadForm,
+                               series=LodTable(seriesRecord, headers=self.seriesTemplateProps, name="Event series"),
+                               events=LodTable(eventRecords, headers=self.eventTemplateProps, name="Events", isDatatable=True))
+
+
+    def getSeries(self, series:str="", format:str="json", returnTo:str=""):
         """
         Return the series and its events as OpenDocument Spreadsheet
 
         Args:
-            series: name of the series that should be returned
+            series(str): name of the series that should be returned
+            format(str): format of the response. Supported json, spreadsheet
 
         Returns:
 
         """
         try:
-            seriesLookup=self.orDataSource.eventSeriesManager.getLookup(self.orDataSource.eventSeriesManager.primaryKey, withDuplicates=True)
-            eventSeries=seriesLookup.get(series)
-            seriesTemplateProps = ["pageTitle", *self.orDataSource.eventSeriesManager.clazz.getTemplateParamLookup().values()]
-            eventSeriesRecords=LOD.filterFields([s.__dict__ for s in eventSeries], fields=seriesTemplateProps, reverse=True)
-            doc=OdsDocument(series)
-            doc.addTable(eventSeriesRecords, doc.lod2Table, name="Series", headers=seriesTemplateProps)
-            if len(eventSeriesRecords)==1:
-                seriesAcronym=eventSeriesRecords[0].get("acronym")
-                events=self.orDataSource.eventManager.getEventsInSeries(seriesAcronym)
-                eventRecords=[event.__dict__ for event in events]
-                eventTemplateProps=["pageTitle", *self.orDataSource.eventManager.clazz.getTemplateParamLookup().values()]
-                eventRecords=LOD.filterFields(eventRecords, fields=eventTemplateProps, reverse=True)
-                doc.addTable(eventRecords, doc.lod2Table,name="Events", headers=eventTemplateProps)
-            self.orDataSource.eventManager.getEventsInSeries(series)
-            buffer=doc.toBytesIO()
-            return send_file(buffer, attachment_filename=doc.filename, as_attachment=True, mimetype='application/vnd.oasis.opendocument.spreadsheet')
+            seriesData = self._getSeries(series)
+            if not seriesData:
+                return flash("Series not found")
+            if format == "application/vnd.oasis.opendocument.spreadsheet":
+                doc=OdsDocument(series)
+                doc.addTable([seriesData.get("series",{})], doc.lod2Table, name="series", headers=self.seriesTemplateProps.values())
+                doc.addTable(list(seriesData.get('events').values()), doc.lod2Table,name="events", headers=self.eventTemplateProps.values())
+                buffer=doc.toBytesIO()
+                return send_file(buffer, attachment_filename=doc.filename, as_attachment=True, mimetype=doc.MIME_TYPE)
+            elif format in ["spreadsheet", ExcelDocument.MIME_TYPE]:
+                doc = ExcelDocument(series)
+                doc.addTable("series",[seriesData.get("series", {})],headers=self.seriesTemplateProps)
+                doc.addTable("events", list(seriesData.get('events').values()), headers=self.eventTemplateProps)
+                buffer = doc.toBytesIO()
+                return send_file(buffer, attachment_filename=doc.filename, as_attachment=True, mimetype=doc.MIME_TYPE)
+            else:
+                return jsonify(seriesData)
         except Exception as e:
             print(e)
-            flash(f'Something went wrong the requested documetn could not be generated', 'warning')
-            return render_template('errorPage.html', url=request.referrer, title=series)
+            flash(f'Something went wrong the requested document could not be generated', 'warning')
+            return render_template('errorPage.html', url=returnTo, title=series)
 
-    def updateSeries(self, seriesPageTitle):
+    def _getSeries(self, series:str="") -> dict:
+        """
+        Get the event series records and the records of the events of the series
+        Args:
+            series: pageTitle of the series to retrieve
+
+        Returns:
+            dict with  the elements 'series' (containing the series records) and 'events' (containing the events of the series as dict with the pageTitle as key)
+        """
+        seriesLookup = self.orDataSource.eventSeriesManager.getLookup(self.orDataSource.eventSeriesManager.primaryKey,withDuplicates=True)
+        if series in seriesLookup:
+            eventSeries = seriesLookup.get(series)
+            eventSeriesRecords = LOD.filterFields([s.__dict__ for s in eventSeries], fields=list(self.seriesTemplateProps.keys()),reverse=True)
+            eventRecords = []
+            if len(eventSeriesRecords) == 1:
+                seriesAcronym = eventSeriesRecords[0].get("acronym")
+                events = self.orDataSource.eventManager.getEventsInSeries(seriesAcronym)
+                if events:
+                    eventRecords = [event.__dict__ for event in events]
+                    eventRecords = LOD.filterFields(eventRecords, fields=list(self.eventTemplateProps.keys()), reverse=True)
+            res={
+                "series":eventSeriesRecords[0],
+                "events": {record.get('pageTitle'): record for record in eventRecords}
+            }
+            return res
+        else:
+            return None
+
+    def updateSeries(self):
+        """
+        Updates the series
+        Returns:
+            Generator for updating event series and events yields the updated entity record
+        """
         if self.authenticate:
             wikiUserInfo = WikiUserInfo.fromWiki(self.targetWiki, request.headers)
         else:
             wikiUserInfo = WikiUserInfo("0", "Test")
         if not self.authenticate or wikiUserInfo.isVerified():
-            self.app.logger.info(f'{wikiUserInfo.name} imported csv')
-            # apply csv import
-            if request.files:
-                if 'csv' in request.files:
-                    odsFile = request.files["csv"]
+            if request.content_type == "application/json":
+                seriesData = json.loads(request.data)
+            elif request.content_type.startswith("multipart/form-data"):
+                updateGenerators=[]
+                for spreadsheetFile in request.files.values():
                     # check if an file was selected
-                    if not(odsFile and odsFile.stream.read()):
+                    if not (spreadsheetFile and spreadsheetFile.stream.read()):
                         # no or empty file was submitted
-                        return self._returnErrorMsg("Please select a file.", "info", seriesPageTitle)
-                    odsFile.stream.seek(0)
-                    doc=OdsDocument(seriesPageTitle)
-                    doc.loadFromFile(odsFile)
-                    eventsLoD=doc.getLodFromTable("Events")
-                    seriesLoD = doc.getLodFromTable("Series")
-                    def publishEntity(entity, **kwargs):
-                        """
-                        Publishes the given entity to its target wiki.
-                        Args:
-                            entity: OREvent or OREventSeries (or similar event with smwHandler)
-                            **kwargs:
-                        """
-                        smwHandler=entity.smwHandler
-                        if hasattr(smwHandler, 'pushToWiki') and callable(getattr(smwHandler, 'pushToWiki')):
-                            smwHandler.pushToWiki(f"spreadsheet import by {wikiUserInfo.name} through orapi",
-                                                  overwrite=True,
-                                                  wikiFileManager=self.wikiFileManager)
-                    if eventsLoD:
-                        # update events
-                        self.orDataSource.eventManager.updateFromLod(eventsLoD, updateEntitiesCallback=publishEntity)
-                    if seriesLoD:
-                        # update event series
-                        self.orDataSource.eventSeriesManager.updateFromLod(seriesLoD, updateEntitiesCallback=publishEntity)
-                    return redirect(request.referrer, code=302)
-                else:
-                    return self._returnErrorMsg('File is attached to the POST request but has an incorrect name', 'info', seriesPageTitle)
+                        raise Exception("Please select a file.", "info", "series upload")
+                    spreadsheetFile.stream.seek(0)
+                    if spreadsheetFile.filename.endswith(".ods"):
+                        doc = OdsDocument("UploadedFile")
+                        doc.loadFromFile(spreadsheetFile)
+                        series = doc.getLodFromTable("series")
+                        seriesData = {
+                            "series": series[0] if len(series) > 0 else {},
+                            "events": doc.getLodFromTable("events")
+                        }
+                    else:
+                        # try to load as excel document
+                        doc = ExcelDocument("UploadedFile")
+                        doc.loadFromFile(spreadsheetFile)
+                        seriesData={
+                            "series": doc.tables["series"][0] if "series" in doc.tables and len(doc.tables["series"]) > 0 else {},
+                            "events": doc.tables["events"] if "events" in doc.tables else []
+                        }
+                    # postprocess the extracted values
+                    # convert template property names back to CC property names
+                    reverseSeriesPropLUT = {value:key for key, value in self.seriesTemplateProps.items()}
+                    seriesData["series"] = {reverseSeriesPropLUT[key]:value for key, value in seriesData['series'].items() if key in reverseSeriesPropLUT}
+                    reverseEventPropLUT = {value: key for key, value in self.eventTemplateProps.items()}
+                    seriesData["events"] = [{reverseEventPropLUT[key]: value for key, value in record.items() if key in reverseEventPropLUT}for record in seriesData['events']]
+
+                    def updateEntityGenerator(entities: list, manager: EventBaseManager):
+                        def publishEntity(entity, **kwargs):
+                            """
+                            Publishes the given entity to its target wiki.
+                            Args:
+                                entity: OREvent or OREventSeries (or similar event with smwHandler)
+                                **kwargs:
+                            """
+                            smwHandler = entity.smwHandler
+                            if hasattr(smwHandler, 'pushToWiki') and callable(getattr(smwHandler, 'pushToWiki')):
+                                smwHandler.pushToWiki(f"spreadsheet import by {wikiUserInfo.name} through orapi",
+                                                      overwrite=True,
+                                                      wikiFileManager=self.wikiFileManager)
+
+                        for entity in entities:
+                            manager.updateFromLod([entity], overwriteEvents=True, updateEntitiesCallback=publishEntity)
+                            yield entity
+
+                    eventUpdateGenerator = updateEntityGenerator(seriesData.get("events"),self.orDataSource.eventManager)
+                    eventSeriesUpdateGenerator = updateEntityGenerator([seriesData.get("series")],self.orDataSource.eventSeriesManager)
+                    updateGenerators.append(eventUpdateGenerator)
+                    updateGenerators.append(eventSeriesUpdateGenerator)
+                return itertools.chain(*updateGenerators)
             else:
-                return self._returnErrorMsg('No file is selected', 'info', seriesPageTitle)
-        else:
-            self.app.logger.info(f'{wikiUserInfo.name} tried to import csv')
-            return self._returnErrorMsg('To import data into the wiki you need to be logged in and have editing rights!', 'warning', seriesPageTitle)
+                raise Exception("Content type not supported.")
+            return
+
+
 
 
     def _returnErrorMsg(self, msg:str, status:str, returnToPage:str):
