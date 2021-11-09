@@ -18,7 +18,7 @@ from wtforms import StringField, SelectField, MultipleFileField, SubmitField, Fi
 from orapi.odsDocument import OdsDocument, ExcelDocument
 from corpus.datasources.openresearch import OR
 from wikifile.wikiFileManager import WikiFileManager
-from flask import request, send_file, redirect, render_template, flash, jsonify, Response
+from flask import request, send_file, redirect, render_template, flash, jsonify, Response, url_for
 
 
 class WebServer(AppWrap):
@@ -43,8 +43,12 @@ class WebServer(AppWrap):
         super().__init__(host=host, port=port, debug=debug, template_folder=template_folder)
         self.app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///:memory:'
         self.app.app_context().push()
-        self.authenticate=False
+        self.authenticate=True
         self.sseBluePrint = SSE_BluePrint(self.app, 'sse')
+
+        @self.app.route('/')
+        def home():
+            return redirect(url_for('series'))
 
         @self.app.route('/series', methods=['GET', 'POST'])
         def series():
