@@ -127,6 +127,8 @@ class WebServer(AppWrap):
             try:
                 generator = self.updateSeries()
                 uploadProgress = self.sseBluePrint.streamDictGenerator(generator=generator)
+            except PermissionError as ex:
+                flash("You need to be logged into the wiki to upload!")
             except Exception as ex:
                 print(ex)
                 flash(str(ex), "warning")
@@ -303,6 +305,8 @@ class WebServer(AppWrap):
             else:
                 raise Exception("Content type not supported.")
             return
+        else:
+            raise PermissionError("Permission required to upload changes to a the wiki")
 
 
 
