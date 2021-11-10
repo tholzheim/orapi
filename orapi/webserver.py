@@ -152,7 +152,7 @@ class WebServer(AppWrap):
             "inEventSeries": lambda value: Link(url=f"https://confident.dbis.rwth-aachen.de/orfixed/index.php?title={value}", title=value),
         }
         def convertValues(lod:list, valueMap:dict):
-            if lod in None:
+            if lod is None:
                 return lod
             for record in lod.copy():
                 for key, function in valueMap.items():
