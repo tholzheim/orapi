@@ -48,7 +48,7 @@ class WebServer(AppWrap):
 
         @self.app.route('/')
         def home():
-            return redirect(url_for('series'))
+            return redirect(self.basedUrl(url_for('series')))
 
         @self.app.route('/series', methods=['GET', 'POST'])
         def series():
@@ -152,6 +152,8 @@ class WebServer(AppWrap):
             "inEventSeries": lambda value: Link(url=f"https://confident.dbis.rwth-aachen.de/orfixed/index.php?title={value}", title=value),
         }
         def convertValues(lod:list, valueMap:dict):
+            if lod in None:
+                return lod
             for record in lod.copy():
                 for key, function in valueMap.items():
                     if key in record:
