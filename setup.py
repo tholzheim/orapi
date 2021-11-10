@@ -27,7 +27,7 @@ setup(name='orapi',
           'pylodstorage>=0.0.69',
           'python-dateutil',
           'ConferenceCorpus>=0.0.26',
-          'pyFlaskBootstrap4>=0.2.13',
+          'pyFlaskBootstrap4>=0.2.19',
           'wikirender>=0.0.33',
           'flask-dropzone',
           'odfpy'
