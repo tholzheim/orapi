@@ -120,7 +120,7 @@ class WebServer(AppWrap):
         if downloadForm.downloadSubmitted():
             series = downloadForm.searchValue
             if series:
-                return redirect(f"/api/series/{series}?format=spreadsheet")
+                return redirect(self.basedUrl(url_for(f"/api/series/{series}?format=spreadsheet")))
             else:
                 flash("Please select a event series for download", "info")
         if downloadForm.uploadSubmitted() and len(request.files)>0:
