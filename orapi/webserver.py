@@ -10,7 +10,7 @@ from typing import List
 from corpus.event import EventBaseManager
 from fb4.app import AppWrap
 from fb4.sse_bp import SSE_BluePrint
-from fb4.widgets import Widget, LodTable, DropZoneField, ButtonField
+from fb4.widgets import Widget, LodTable, DropZoneField, ButtonField, Link
 from flask_wtf import FlaskForm
 from lodstorage.lod import LOD
 from wikibot.wikiuser import WikiUser
@@ -116,6 +116,7 @@ class WebServer(AppWrap):
         seriesRecord = None
         eventRecords = None
         uploadProgress = None
+        selectedParam = request.values.get("series", None)
         if downloadForm.downloadSubmitted():
             series = downloadForm.searchValue
             if series:
@@ -129,17 +130,43 @@ class WebServer(AppWrap):
             except Exception as ex:
                 print(ex)
                 flash(str(ex), "warning")
-        if downloadForm.searchSubmitted():
-            seriesData = self._getSeries(downloadForm.searchValue)
+        if downloadForm.searchSubmitted() or selectedParam:
+            seriesId=selectedParam
+            if downloadForm.searchValue:
+                seriesId=downloadForm.searchValue
+            else:
+                downloadForm.searchValue=seriesId
+            seriesData = self._getSeries(seriesId)
             if seriesData:
                 seriesRecord= [seriesData.get('series',[])]
                 eventRecords = list(seriesData.get('events').values())
 
+        valueMap = {
+            "pageTitle": lambda value: Link(url=f"https://confident.dbis.rwth-aachen.de/orfixed/index.php?title={value}", title=value),
+            "homepage": lambda value: Link(url=value, title=value),
+            "wikidataId": lambda value: Link(url=f"https://www.wikidata.org/wiki/{value}", title=value),
+            "WikiCfpSeries": lambda value: Link(url=f"http://www.wikicfp.com/cfp/program?id={value}", title=value),
+            "wikicfpId": lambda value: Link(url=f"http://www.wikicfp.com/cfp/servlet/event.showcfp?eventid={value}", title=value),
+            "DblpConferenceId": lambda value: Link(url=f"https://dblp2.uni-trier.de/db/conf/{value}", title=value),
+            "dblpSeries": lambda value: Link(url=f"https://dblp.org/db/conf/{value}/index.html", title=value),
+            "inEventSeries": lambda value: Link(url=f"https://confident.dbis.rwth-aachen.de/orfixed/index.php?title={value}", title=value),
+        }
+        def convertValues(lod:list, valueMap:dict):
+            for record in lod.copy():
+                for key, function in valueMap.items():
+                    if key in record:
+                        record[key] = function(record[key])
+            return lod
+
+        seriesLod=convertValues(seriesRecord, valueMap)
+        eventLod=convertValues(eventRecords, valueMap)
+
+
         return render_template('series.html',
                                progress=uploadProgress,
                                downloadForm=downloadForm,
-                               series=LodTable(seriesRecord, headers=self.seriesTemplateProps, name="Event series"),
-                               events=LodTable(eventRecords, headers=self.eventTemplateProps, name="Events", isDatatable=True))
+                               series=LodTable(seriesLod, headers=self.seriesTemplateProps, name="Event series"),
+                               events=LodTable(eventLod, headers=self.eventTemplateProps, name="Events", isDatatable=True))
 
 
     def getSeries(self, series:str="", format:str="json", returnTo:str=""):
@@ -381,6 +408,13 @@ class SeriesForm(FlaskForm):
     def searchValue(self):
         if hasattr(self, 'data'):
             return self.data.get('search', "")
+
+    @searchValue.setter
+    def searchValue(self, seriesId:str):
+        if seriesId in self.search.choices:
+            self.search.data=seriesId
+        else:
+            flash("Series not found")
 
 
 DEBUG = False
