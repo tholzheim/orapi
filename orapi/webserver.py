@@ -185,7 +185,7 @@ class WebServer(AppWrap):
         try:
             seriesData = self._getSeries(series)
             if not seriesData:
-                return flash("Series not found")
+                return None
             if format == "application/vnd.oasis.opendocument.spreadsheet":
                 doc=OdsDocument(series)
                 doc.addTable([seriesData.get("series",{})], doc.lod2Table, name="series", headers=self.seriesTemplateProps.values())
@@ -413,7 +413,7 @@ class SeriesForm(FlaskForm):
 
     @searchValue.setter
     def searchValue(self, seriesId:str):
-        if seriesId in self.search.choices:
+        if seriesId in [c1 for c1,c1 in self.search.choices]:
             self.search.data=seriesId
         else:
             flash("Series not found")
