@@ -43,7 +43,7 @@ class WebServer(AppWrap):
         super().__init__(host=host, port=port, debug=debug, template_folder=template_folder)
         self.app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///:memory:'
         self.app.app_context().push()
-        self.authenticate=True
+        self.authenticate=False
         self.sseBluePrint = SSE_BluePrint(self.app, 'sse')
 
         @self.app.route('/')
@@ -58,17 +58,38 @@ class WebServer(AppWrap):
         @self.csrf.exempt
         def uploadSeries():
             try:
-                for entity in self.updateSeries():
-                    pass
-                return Response("{‘success’:True}", status=200, mimetype='application/json')
+                seriesUpdator = self.updateSeries()
+                def generate(generator):
+                    for entity in generator:
+                        missing_message='series with pageTitle missing'
+                        if isinstance(entity, dict):
+                            pageTitle=entity.get('pageTitle', missing_message)
+                        else:
+                            pageTitle=getattr(entity, "pageTitle", missing_message)
+                        yield f"Updated {pageTitle}" + "\n"
+                    yield "Update completed\n"
+                return Response(generate(seriesUpdator), mimetype='text/event-stream')
+            except PermissionError as ex:
+                return str(ex) +"\n"
+            except TypeError as ex:
+                return str(ex) +"\n"
             except Exception as ex:
                 print(ex)
-                return self._returnErrorMsg(ex)
+                return self._returnErrorMsg(str(ex))
 
         @self.app.route('/api/series/<series>', methods=['GET'])
         @self.csrf.exempt
         def handleEventsOfSeries(series: str):
-            format = request.values.get("format", "json")
+            EXCEL_POSTFIX=".xlsx"
+            ODS_POSTFIX=".ods"
+            format = "json"
+            if series.endswith(EXCEL_POSTFIX):
+                format="spreadsheet"
+                series=series[:-len(EXCEL_POSTFIX)]
+            elif series.endswith(ODS_POSTFIX):
+                format="application/vnd.oasis.opendocument.spreadsheet"
+                series=series[:-len(ODS_POSTFIX)]
+            print("Format: ", format, " Series: ", series)
             return self.getSeries(series, format=format, returnTo=request.referrer)
 
 
@@ -120,7 +141,7 @@ class WebServer(AppWrap):
         if downloadForm.downloadSubmitted():
             series = downloadForm.searchValue
             if series:
-                return redirect(self.basedUrl(f"/api/series/{series}?format=spreadsheet"))
+                return redirect(self.basedUrl(f"/api/series/{series}.xlsx"))
             else:
                 flash("Please select a event series for download", "info")
         if downloadForm.uploadSubmitted() and len(request.files)>0:
@@ -264,7 +285,7 @@ class WebServer(AppWrap):
                             "series": series[0] if len(series) > 0 else {},
                             "events": doc.getLodFromTable("events")
                         }
-                    else:
+                    elif spreadsheetFile.filename.endswith(".xlsx"):
                         # try to load as excel document
                         doc = ExcelDocument("UploadedFile")
                         doc.loadFromFile(spreadsheetFile)
@@ -272,6 +293,8 @@ class WebServer(AppWrap):
                             "series": doc.tables["series"][0] if "series" in doc.tables and len(doc.tables["series"]) > 0 else {},
                             "events": doc.tables["events"] if "events" in doc.tables else []
                         }
+                    else:
+                        raise TypeError("File type is not supported. Must be '.xlsx' or '.ods'")
                     # postprocess the extracted values
                     # convert template property names back to CC property names
                     reverseSeriesPropLUT = {value:key for key, value in self.seriesTemplateProps.items()}
