@@ -44,7 +44,7 @@ class WebServer(AppWrap):
         self.app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///:memory:'
         self.app.app_context().push()
         self.authenticate=False
-        self.sseBluePrint = SSE_BluePrint(self.app, 'sse')
+        self.sseBluePrint = SSE_BluePrint(self.app, 'sse', baseUrl=self.baseUrl)
 
         @self.app.route('/')
         def home():
@@ -133,7 +133,7 @@ class WebServer(AppWrap):
 
     def series(self):
         seriesChoices = [(getattr(series, 'pageTitle'), getattr(series, 'pageTitle')) for series in self.orDataSource.eventSeriesManager.getList()]
-        downloadForm=SeriesForm(seriesChoices)
+        downloadForm=SeriesForm(seriesChoices, basedUrlFn=self.basedUrl)
         seriesRecord = None
         eventRecords = None
         uploadProgress = None
@@ -416,13 +416,17 @@ class SeriesForm(FlaskForm):
     search = SelectField('search', render_kw={"onchange": "this.form.submit()"},
                          description="Enter a Event series accronym to select the series for download")
     download = ButtonField(render_kw={"value": "false", "type": "submit", "onclick":"this.value=true;"})
-    dropzone = DropZoneField(id="files", uploadId="upload", configParams={'acceptedFiles': ".ods, .xlsx"})
+    dropzone = DropZoneField(id="files",url="/series", uploadId="upload", configParams={'acceptedFiles': ".ods, .xlsx"})
     upload = ButtonField(render_kw={"value": "false", "type": "submit", "onclick":"this.value=true;"})
 
-    def __init__(self, choices:list=[]):
+    def __init__(self, choices:list=[], basedUrlFn:callable=None):
         super(SeriesForm, self).__init__()
         self.search.choices=choices
         self.search.validators=[validators.any_of([v1 for v1,v2 in choices])]
+        if basedUrlFn:
+            url=basedUrlFn(self.dropzone.config.get("url", ""))
+            self.dropzone.updateConfigParams(url=url)
+        self.dropzone.updateConfigParams(disablePreviews=False)
 
     def downloadSubmitted(self):
         return self.validate_on_submit() and self.data.get('download', False)=="true" and not self.uploadSubmitted() # download is handled as redirect thus the value is not updated → possible soultion cooldown for value
