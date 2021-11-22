@@ -1,0 +1,13 @@
+
+{% extends 'base.html' %}
+{% from 'bootstrap/form.html' import render_form %}
+{% from 'bootstrap/pagination.html' import render_pager, render_pagination %}
+{% import 'macros.html' as macros %}
+{% from 'bootstrap/table.html' import render_table %}
+{% block content %}
+    <h1>Series</h1>
+    <a href="{{ seriesUrl}}" type="text/csv" download><button type="button" name="button">Download All Series</button></a>
+    <h1>Events</h1>
+    <a href="{{ eventsUrl }}" type="text/csv" download><button type="button" name="button">Download All Events</button></a>
+
+{% endblock %}

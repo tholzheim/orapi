@@ -3,6 +3,7 @@ import os
 import json
 import sys
 import uuid
+from io import BytesIO, StringIO
 
 import requests
 from os import path
@@ -48,7 +49,10 @@ class WebServer(AppWrap):
 
         @self.app.route('/')
         def home():
-            return redirect(self.basedUrl(url_for('series')))
+            #return redirect(self.basedUrl(url_for('series')))
+            return render_template('home.html',
+                                   seriesUrl=self.basedUrl("/api/series?format=csv"),
+                                   eventsUrl=self.basedUrl("/api/events?format=csv"))
 
         @self.app.route('/series', methods=['GET', 'POST'])
         def series():
@@ -91,6 +95,47 @@ class WebServer(AppWrap):
                 series=series[:-len(ODS_POSTFIX)]
             print("Format: ", format, " Series: ", series)
             return self.getSeries(series, format=format, returnTo=request.referrer)
+
+        @self.app.route('/api/series', methods=['GET'])
+        def getSeries():
+            format=request.values.get('format', None)
+            if format is None:
+                if request.accept_mimetypes['application/json']: format="json"
+                elif request.accept_mimetypes['text/csv']: format="csv"
+                else: format="json"
+            if format=="json":
+                eventSeries=self.orDataSource.eventSeriesManager.getList()
+                eventSeriesRecords = LOD.filterFields([s.__dict__ for s in eventSeries],
+                                                      fields=list(self.seriesTemplateProps.keys()), reverse=True)
+                return jsonify(eventSeriesRecords), '200 OK'
+            elif format=="csv":
+                csvStr = self.orDataSource.eventSeriesManager.asCsv()
+                return self.sendFile(csvStr, name="series.csv", mimetype="text/csv")
+            else:
+                return "Type not supported"
+
+        @self.app.route('/api/events', methods=['GET'])
+        def getEvents():
+            format = request.values.get('format', None)
+            if format is None:
+                if request.accept_mimetypes['application/json']:
+                    format = "json"
+                elif request.accept_mimetypes['text/csv']:
+                    format = "csv"
+                else:
+                    format = "json"
+            if format == "json":
+                events = self.orDataSource.eventManager.getList()
+                eventRecords = LOD.filterFields([s.__dict__ for s in events],
+                                                      fields=list(self.eventTemplateProps.keys()), reverse=True)
+                return jsonify(eventRecords), '200 OK'
+            elif format == "csv":
+                csvStr = self.orDataSource.eventManager.asCsv()
+                return self.sendFile(csvStr, name="series.csv", mimetype="text/csv")
+            else:
+                return "Type not supported"
+
+
 
 
     def init(self,wikiId:str, wikiTextPath:str):
@@ -331,8 +376,21 @@ class WebServer(AppWrap):
         else:
             raise PermissionError("Permission required to upload changes to a the wiki")
 
+    def sendFile(self, data:str, name:str,mimetype:str="text" ):
+        """
+        Send the given string as file
+        Args:
+            data(str): string to be send as file
+            name: na of the file
+            mimetype: type of the file
 
+        Returns:
 
+        """
+        buffer = BytesIO()
+        buffer.write(data.encode())
+        buffer.seek(0)
+        return send_file(buffer, as_attachment=True, attachment_filename=name, mimetype=mimetype)
 
     def _returnErrorMsg(self, msg:str, status:str, returnToPage:str):
         """
