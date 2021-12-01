@@ -136,21 +136,25 @@ class WikiUserInfo(object):
         Returns:
             WikiUserInfo
         """
-        response = requests.request(
-            method="GET",
-            params={'action': 'query',
-                    'meta': 'userinfo',
-                    'uiprop': 'rights|acceptlang|registrationdate',
-                    'format': 'json'},
-            url=wikiUrl+ "/api.php",
-            headers={key: value for (key, value) in headers if key =="Cookie"},
-            allow_redirects=False)
-        res = json.loads(response.text)
-        userInfo={}
-        if 'query' in res:
-            queryRes = res.get('query')
-            if 'userinfo' in queryRes:
-                userInfo = queryRes.get('userinfo')
-        if userInfo and 'id' in userInfo and 'name' in userInfo:
-            wikiUserInfo=WikiUserInfo(**userInfo)
-            return wikiUserInfo
+        try:
+            response = requests.request(
+                method="GET",
+                params={'action': 'query',
+                        'meta': 'userinfo',
+                        'uiprop': 'rights|acceptlang|registrationdate',
+                        'format': 'json'},
+                url=wikiUrl+ "/api.php",
+                headers={key: value for (key, value) in headers if key =="Cookie"},
+                allow_redirects=False)
+            res = json.loads(response.text)
+            userInfo={}
+            if 'query' in res:
+                queryRes = res.get('query')
+                if 'userinfo' in queryRes:
+                    userInfo = queryRes.get('userinfo')
+            if userInfo and 'id' in userInfo and 'name' in userInfo:
+                wikiUserInfo=WikiUserInfo(**userInfo)
+                return wikiUserInfo
+        except Exception as e:
+            print(e)
+            return WikiUserInfo(id=-1, name="unkown")

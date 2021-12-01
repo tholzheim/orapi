@@ -142,7 +142,7 @@ class WebServer(AppWrap):
         @self.app.route('/api/publish/series/<series>', methods=['GET'])
         @self.csrf.exempt
         def publishSeries(series: str):
-            publisher=WikiUserInfo.fromWiki(self.wikiUrl, request.headers)
+            publisher=WikiUserInfo.fromWiki(self.wikiUser.getWikiUrl(), request.headers)
             publishPagesGenerator=self.publishSeries(series,
                                                      source=self.wikiId,
                                                      target=self.publishWikiUser.wikiId,
