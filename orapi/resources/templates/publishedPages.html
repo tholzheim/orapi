@@ -5,7 +5,7 @@
 {% import 'macros.html' as macros %}
 {% from 'bootstrap/table.html' import render_table %}
 {% block content %}
-<h1>Published the following Pages from <a href="{{ sourceUrl }}">{{ source }}</a> to <a href="{{ targetUrl }}">{{ target }}</a></h1>
+<h1>Published the following Pages of the series {{ series }} from <a href="{{ sourceUrl }}/index.php?title={{ series }}">{{ source }}</a> to <a href="{{ targetUrl }}/index.php?title={{ series }}">{{ target }}</a></h1>
     <h2>Publish Progress</h2>
     {{ publishProgress.progressMessages(-1, completdeMsg="Publish completed")|safe }}
 {% endblock %}

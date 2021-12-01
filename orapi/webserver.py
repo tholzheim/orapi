@@ -152,6 +152,7 @@ class WebServer(AppWrap):
             target = self.publishWikiUser.scriptPath if self.publishWikiUser.scriptPath == "or" else self.publishWikiUser.wikiId
 
             return render_template("publishedPages.html",
+                                   series=series,
                                    source=source,
                                    sourceUrl=self.wikiUser.getWikiUrl(),
                                    target=target,
