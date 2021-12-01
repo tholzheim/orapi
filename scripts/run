@@ -132,7 +132,7 @@ startServer() {
   fi
   if [ "$l_targetWikiUser" != "" ]
   then
-    poptions="$poptions --target $l_targetWikiUser"
+    poptions="$poptions --publishWikiId $l_targetWikiUser"
   fi
   echo "setting python options to $poptions"
   nohup python3 $pyapp $poptions > $l_logdir/$l_logfile 2>&1 &
