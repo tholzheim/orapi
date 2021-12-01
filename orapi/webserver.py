@@ -8,6 +8,8 @@ from io import BytesIO, StringIO
 import requests
 from os import path
 from typing import List
+
+import wikibot.wikipush
 from corpus.event import EventBaseManager
 from fb4.app import AppWrap
 from fb4.sse_bp import SSE_BluePrint
@@ -17,9 +19,11 @@ from lodstorage.lod import LOD
 from wikibot.wikiuser import WikiUser
 from wtforms import StringField, SelectField, MultipleFileField, SubmitField, FileField, validators, Field
 from orapi.odsDocument import OdsDocument, ExcelDocument
-from corpus.datasources.openresearch import OR
+from corpus.datasources.openresearch import OR, OREvent
 from wikifile.wikiFileManager import WikiFileManager
 from flask import request, send_file, redirect, render_template, flash, jsonify, Response, url_for
+
+from orapi.utils import WikiUserInfo, PageHistory
 
 
 class WebServer(AppWrap):
@@ -135,22 +139,42 @@ class WebServer(AppWrap):
             else:
                 return "Type not supported"
 
+        @self.app.route('/api/publish/series/<series>', methods=['GET'])
+        @self.csrf.exempt
+        def publishSeries(series: str):
+            publisher=WikiUserInfo.fromWiki(self.wikiUrl, request.headers)
+            publishPagesGenerator=self.publishSeries(series,
+                                                     source=self.wikiId,
+                                                     target=self.publishWikiUser.wikiId,
+                                                     publisher=publisher)
+            publishProgress = self.sseBluePrint.streamDictGenerator(generator=publishPagesGenerator)
+            source = self.wikiUser.scriptPath if self.wikiUser.scriptPath == "orfixed" else self.wikiUser.wikiId
+            target = self.publishWikiUser.scriptPath if self.publishWikiUser.scriptPath == "or" else self.publishWikiUser.wikiId
+
+            return render_template("publishedPages.html",
+                                   source=source,
+                                   sourceUrl=self.wikiUser.getWikiUrl(),
+                                   target=target,
+                                   targetUrl=self.publishWikiUser.getWikiUrl(),
+                                   publishProgress=publishProgress)
 
 
 
-    def init(self,wikiId:str, wikiTextPath:str):
+
+    def init(self,wikiId:str, wikiTextPath:str, publishWikiId:str):
         """
 
         Args:
             wikiId:
             wikiTextPath:
-
+            publishWikiId(str): wikiId of the wiki to which pages should be published
         Returns:
 
         """
         self.wikiUser = WikiUser.ofWikiId(wikiId)
         self.wikiTextPath = wikiTextPath
         self.targetWiki = self.wikiUser.getWikiUrl()
+        self.publishWikiUser=WikiUser.ofWikiId(publishWikiId)
         self.initOpenResearch()
 
     @property
@@ -404,67 +428,37 @@ class WebServer(AppWrap):
         flash(msg, status)
         return render_template('errorPage.html', url=request.referrer, title=returnToPage)
 
-class WikiUserInfo(object):
-    """
-    Simple class holding information about a wikiuser
-    See https://www.mediawiki.org/wiki/API:Userinfo for more information on which data is queried
-    """
-
-    def __init__(self, id:int, name:str, rights: List[str]=None, registrationdate:str=None, acceptlang: List[str]=None, **kwargs):
+    def publishSeries(self, series: str, source:str, target: str, publisher:WikiUserInfo):
         """
+        publish given series to the given target
 
         Args:
-            id(int): id of the user
-            name(str): name of the user
-            rights(list): list of the rights the user has
-
-        """
-        self.id = id
-        self.name = name
-        self.rights = rights if rights else []
-        self.registrationdate = registrationdate
-        self.acceptlang = acceptlang
-
-    def isVerified(self) -> bool:
-        """
-        Returns True if the user is a registered user and has the rights to edit pages
-        """
-        # List of mediawiki user rights https://www.mediawiki.org/wiki/Manual:User_rights#List_of_permissions
-        requiredRights = {'createpage', 'edit'}
-        isVerified = requiredRights.issubset(self.rights) and self.registrationdate is not None
-        return isVerified
-
-    @staticmethod
-    def fromWiki(wikiUrl:str, headers):
-        """Queries the UserInfos for the user of the given request and returns a corresponding WikiUserInfo object
-        Args:
-            wikiUrl(str): url of the wiki to ask for the user
-            request(request): request message of the user
+            series(str): id of the series to be published
+            source(str): id of the source wiki
+            target(str): id of the target wiki
 
         Returns:
-            WikiUserInfo
+
         """
-        response = requests.request(
-            method="GET",
-            params={'action': 'query',
-                    'meta': 'userinfo',
-                    'uiprop': 'rights|acceptlang|registrationdate',
-                    'format': 'json'},
-            url=wikiUrl+ "/api.php",
-            headers={key: value for (key, value) in headers if key =="Cookie"},
-            allow_redirects=False)
-        res = json.loads(response.text)
-        userInfo={}
-        if 'query' in res:
-            queryRes = res.get('query')
-            if 'userinfo' in queryRes:
-                userInfo = queryRes.get('userinfo')
-        if userInfo and 'id' in userInfo and 'name' in userInfo:
-            wikiUserInfo=WikiUserInfo(**userInfo)
-            return wikiUserInfo
-
-
-
+        wikiFileManager=WikiFileManager(sourceWikiId=source, targetWikiId=target)
+        eventsToPublish=[]
+        if self.orDataSource.eventSeriesManager.getEventByKey(series):
+            eventsToPublish.append(self.orDataSource.eventSeriesManager.getEventByKey(series))
+        for event in self.orDataSource.eventManager.getEventsInSeries(series):
+            eventsToPublish.append(event)
+        sourceWikiUser=WikiUser.ofWikiId(source)
+        def updateAndPush(event):
+            wikiFile=wikiFileManager.getWikiFileFromWiki(event.pageTitle)
+            template=getattr(event, 'templateName')
+            lod={
+                "pageOwner":PageHistory(event.pageTitle, sourceWikiUser.getWikiUrl()).getPageOwner(),
+                "pageEditor":publisher.name
+            }
+            wikiFile.updateTemplate(template_name=template,args=lod, overwrite=True)
+            wikiFileManager.pushWikiFilesToWiki([wikiFile], updateMsg=f"pushed from orfixed by {publisher.name}")
+            return f"Published {event.pageTitle}"
+        for event in eventsToPublish:
+            yield updateAndPush(event)
 
 
 class SeriesForm(FlaskForm):
@@ -517,11 +511,12 @@ def main(argv=None):
     home=path.expanduser("~")
     parser = web.getParser(description="openresearch api to retrieve and edit data")
     parser.add_argument('--wikiTextPath',default=f"{home}/.or/generated/orfixed", help="location of the wikiMarkup files to be used to initialize the ConferenceCorpus")  #ToDo: Update default value
-    parser.add_argument('-t', '--target', default="wikirenderTest", help="wikiId of the target wiki [default: %(default)s]")
+    parser.add_argument('-t', '--target', default="myor", help="wikiId of the target wiki [default: %(default)s]")
+    parser.add_argument('--publishWikiId', default="wikirenderTest",help="wikiId of the wiki to which pages sould be published")
     parser.add_argument('--verbose', default=True, action="store_true", help="should relevant server actions be logged [default: %(default)s]")
     args = parser.parse_args()
     web.optionalDebug(args)
-    web.init(wikiId=args.target,wikiTextPath=args.wikiTextPath)
+    web.init(wikiId=args.target,wikiTextPath=args.wikiTextPath, publishWikiId=args.publishWikiId)
     web.run(args)
 
 if __name__ == '__main__':

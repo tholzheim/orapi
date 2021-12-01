@@ -2,7 +2,7 @@ from setuptools import setup
 from collections import OrderedDict
 
 setup(name='orapi',
-      version='0.0.2',
+      version='0.0.3',
       description='python api providing access to openresearch events and event series',
       long_description_content_type='text/markdown',
       url='https://github.com/tholzheim/orapi',
