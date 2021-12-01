@@ -44,6 +44,7 @@ usage() {
   echo "  -s: start as server only"
   echo " --wikiTextPath: location of the wikiMarkup files to be used to initialize the ConferenceCorpus"
   echo " -t: wikiId of the target wiki"
+  echo " --publishWikiId wiki to publish the pages to"
 }
 export PYTHONPATH=""
 
@@ -104,6 +105,7 @@ startServer() {
   local l_localPath="$5"
   local l_wikiTextPath="$6"
   local l_targetWikiUser="$7"
+  local l_publishWikiId="$8"
   color_msg $blue "starting server only"
   if [ ! -d $l_logdir ]
   then
@@ -132,7 +134,11 @@ startServer() {
   fi
   if [ "$l_targetWikiUser" != "" ]
   then
-    poptions="$poptions --publishWikiId $l_targetWikiUser"
+    poptions="$poptions --target $l_targetWikiUser"
+  fi
+  if [ "$l_publishWikiId" != "" ]
+  then
+    poptions="$poptions --publishWikiId $l_publishWikiId"
   fi
   echo "setting python options to $poptions"
   nohup python3 $pyapp $poptions > $l_logdir/$l_logfile 2>&1 &
@@ -160,7 +166,7 @@ do
     -b|--baseUrl)
       if [ $# -lt 1 ] 
       then
-	 usage
+        usage
       fi
       baseUrl="$1"
       shift
@@ -168,7 +174,7 @@ do
     -d|--debug)
       if [ $# -lt 1 ] 
       then
-	 usage
+        usage
       fi
       debugServer="$1"
       shift
@@ -176,7 +182,7 @@ do
     --wikiTextPath)
       if [ $# -lt 1 ]
       then
-	 usage
+        usage
       fi
       wikiTextPath="$1"
       shift
@@ -184,15 +190,23 @@ do
     -t|--target)
       if [ $# -lt 1 ]
       then
-	 usage
+        usage
       fi
       targetWikiUser="$1"
+      shift
+      ;;
+    --publishWikiId)
+      if [ $# -lt 1 ]
+      then
+        usage
+      fi
+      publishWikiId="$1"
       shift
       ;;
     -dp|--debugPath)
       if [ $# -lt 2 ] 
       then
-	 usage
+        usage
       fi
       remotePath="$1"
       shift
@@ -201,13 +215,13 @@ do
     --sites)
       if [ $# -lt 1 ] 
       then
-	 usage
+        usage
       fi
       sites="$1"
       shift
       ;;
     -s)
-      startServer "$baseUrl" "$debugServer" "$debugPort" "$remotePath" "$localPath" "$wikiTextPath" "$targetWikiUser"
+      startServer "$baseUrl" "$debugServer" "$debugPort" "$remotePath" "$localPath" "$wikiTextPath" "$targetWikiUser" "$publishWikiId"
       exit 0
       ;;
     *)
