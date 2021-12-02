@@ -1,6 +1,6 @@
 from unittest import TestCase
 from tempfile import TemporaryDirectory
-from datetime import datetime
+from datetime import datetime, date
 from orapi.odsDocument import OdsDocument, ExcelDocument
 
 
@@ -57,7 +57,7 @@ class TestExcelDocument(TestCase):
             {
                 "name":"Bob",
                 "lastname":"Doe",
-                "modificationDate":datetime.now().isoformat(' ', 'seconds'),   # the roundtrip adds rounding errors to the microseconds of this property
+                "modificationDate":date(year=2021, month=12, day=2),
                 "dept":234.23
             },
             {
@@ -82,6 +82,7 @@ class TestExcelDocument(TestCase):
         for i, record in enumerate(expectedLOD):
             for key,expectedValue in record.items():
                 self.assertEqual(expectedValue, actualLOD[i].get(key))
+                self.assertEqual(type(expectedValue), type(actualLOD[i].get(key)))
 
     def test_lod2table(self):
         """
@@ -93,7 +94,11 @@ class TestExcelDocument(TestCase):
         doc.addTable("Persons2", self.testLoD)
         doc.saveToFile(fileName)
         docReloaded=ExcelDocument("TestReloaded")
-        docReloaded.loadFromFile(fileName)
+        samples={
+            "Persons":self.testLoD,
+            "Persons2": self.testLoD
+        }
+        docReloaded.loadFromFile(fileName, samples=samples)
         extractedData=docReloaded.getTable("Persons")
         self.assertLodEqual(self.testLoD, extractedData)
 

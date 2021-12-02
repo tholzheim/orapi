@@ -5,11 +5,10 @@ import xml.etree.ElementTree as ET
 
 from odf.text import P
 from io import BytesIO
-from pandas import Timestamp
-from datetime import datetime
+from pandas import Timestamp, NaT
+from datetime import datetime, date
 from lodstorage.lod import LOD
 from odf.opendocument import load
-from pandas._libs.tslibs.nattype import NaTType
 from odf.opendocument import OpenDocumentSpreadsheet
 from odf.table import Table, TableColumn, TableRow, TableCell
 
@@ -87,37 +86,64 @@ class ExcelDocument:
         buffer.seek(0)
         return buffer
 
-    def loadFromFile(self, file):
+    def loadFromFile(self, file, samples:dict):
         """
         load the document from the given .ods file
         Args:
             file: absolut file path to the file that should be loaded
-
+            samples(dict): samples of the sheets. Expected format: sheetName:SamplesForSheet
         Returns:
 
         """
+        def getColType(value):
+            if isinstance(value, datetime) or isinstance(value, date):
+                return pd.to_datetime
+            else:
+                return type(value)
+        def getLodValueType(value):
+            if isinstance(value, datetime):
+                return datetime
+            elif isinstance(value, date):
+                return date
+            else:
+                return type(value)
+
+        def _loadFromFile(file):
+            sheets = pd.read_excel(file, sheet_name=None).keys()
+            for sheet in sheets:
+                df = pd.read_excel(file, sheet_name=sheet, converters=sheetColTypes.get(sheet, None), na_values=None)
+                df=df.where(pd.notnull(df), None)
+                lod=df.to_dict('records')
+                # NaT handling iss due to a bug in pandas https://github.com/pandas-dev/pandas/issues/29024
+                lod=[{k: v.to_pydatetime() if isinstance(v, Timestamp) else None if isinstance(v, type(NaT)) else v for k,v in d.items()} for d in lod]
+                # fix date (datetime → date) datetiem and date can not be distinguished in excel (handled over format)
+                dateCols=[col for col, _type in lodValueTypes.get(sheet, {}).items() if _type == date]
+                lod=[{k:v.date() if v and k in dateCols else v for k,v in d.items()} for d in lod]
+                self.tables[sheet] = lod
+
+        sheetColTypes={}
+        lodValueTypes={}
+        for sheet, sheetSamples in samples.items():
+            colTypes={}
+            valueTypes={}
+            for s in sheetSamples:
+                for col, value in s.items():
+                    colType = getColType(value)
+                    valueTypes[col]=getLodValueType(value)
+                    if col in colTypes:
+                        if colTypes[col] == colType:
+                            continue
+                        else:
+                            # inconsistent datatype default to string
+                            colType=str
+                    colTypes[col]=colType
+            sheetColTypes[sheet]=colTypes
+            lodValueTypes[sheet]=valueTypes
         if isinstance(file, str):
             with open(file, mode="rb") as reader:
-                dfs = pd.read_excel(reader,  sheet_name=None)
+                _loadFromFile(reader)
         else:
-            dfs = pd.read_excel(file, sheet_name=None)
-        for tableName, df in dfs.items():
-            headers = list(df.columns)
-            #lod = [{headers[i]: value for i, value in enumerate(record)} for record in df.values]
-            lod = []
-            for record in df.values:
-                d = {}
-                for i, value in enumerate(record):
-                    if isinstance(value, Timestamp):
-                        value = value.to_pydatetime()
-                    elif isinstance(value, float):
-                        if math.isnan(value):
-                            value = None
-                    elif isinstance(value, NaTType):
-                        value = None
-                    d[headers[i]] = value
-                lod.append(d)
-            self.tables[tableName] = lod
+            _loadFromFile(file)
 
 class OdsDocument:
     """

@@ -19,7 +19,7 @@ from lodstorage.lod import LOD
 from wikibot.wikiuser import WikiUser
 from wtforms import StringField, SelectField, MultipleFileField, SubmitField, FileField, validators, Field
 from orapi.odsDocument import OdsDocument, ExcelDocument
-from corpus.datasources.openresearch import OR, OREvent
+from corpus.datasources.openresearch import OR, OREvent, OREventSeries
 from wikifile.wikiFileManager import WikiFileManager
 from flask import request, send_file, redirect, render_template, flash, jsonify, Response, url_for
 
@@ -335,7 +335,7 @@ class WebServer(AppWrap):
         if self.authenticate:
             wikiUserInfo = WikiUserInfo.fromWiki(self.targetWiki, request.headers)
         else:
-            wikiUserInfo = WikiUserInfo("0", "Test")
+            wikiUserInfo = WikiUserInfo("0", "unknown")
         if not self.authenticate or wikiUserInfo.isVerified():
             if request.content_type == "application/json":
                 seriesData = json.loads(request.data)
@@ -358,7 +358,12 @@ class WebServer(AppWrap):
                     elif spreadsheetFile.filename.endswith(".xlsx"):
                         # try to load as excel document
                         doc = ExcelDocument("UploadedFile")
-                        doc.loadFromFile(spreadsheetFile)
+                        updateKeys=lambda lod, map: [{map.get(k,k):v for k,v in d.items()} for d in lod]
+                        samples={
+                            'events':updateKeys(OREvent.getSamples(), self.eventTemplateProps),
+                            'series':updateKeys(OREventSeries.getSamples(), self.seriesTemplateProps)
+                        }
+                        doc.loadFromFile(spreadsheetFile, samples=samples)
                         seriesData={
                             "series": doc.tables["series"][0] if "series" in doc.tables and len(doc.tables["series"]) > 0 else {},
                             "events": doc.tables["events"] if "events" in doc.tables else []
@@ -388,7 +393,7 @@ class WebServer(AppWrap):
 
                         for entity in entities:
                             manager.updateFromLod([entity], overwriteEvents=True, updateEntitiesCallback=publishEntity)
-                            yield entity
+                            yield {k:str(v) for k,v in entity.items()}
 
                     eventUpdateGenerator = updateEntityGenerator(seriesData.get("events"),self.orDataSource.eventManager)
                     eventSeriesUpdateGenerator = updateEntityGenerator([seriesData.get("series")],self.orDataSource.eventSeriesManager)
