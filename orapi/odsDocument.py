@@ -114,11 +114,13 @@ class ExcelDocument:
                 df = pd.read_excel(file, sheet_name=sheet, converters=sheetColTypes.get(sheet, None), na_values=None)
                 df=df.where(pd.notnull(df), None)
                 lod=df.to_dict('records')
-                # NaT handling iss due to a bug in pandas https://github.com/pandas-dev/pandas/issues/29024
+                # NaT handling issue due to a bug in pandas https://github.com/pandas-dev/pandas/issues/29024
                 lod=[{k: v.to_pydatetime() if isinstance(v, Timestamp) else None if isinstance(v, type(NaT)) else v for k,v in d.items()} for d in lod]
                 # fix date (datetime → date) datetiem and date can not be distinguished in excel (handled over format)
                 dateCols=[col for col, _type in lodValueTypes.get(sheet, {}).items() if _type == date]
                 lod=[{k:v.date() if v and k in dateCols else v for k,v in d.items()} for d in lod]
+                # float nan to None
+                lod=[{k:v if not (isinstance(v, float) and math.isnan(v)) else None for k,v in d.items() }for d in lod]
                 self.tables[sheet] = lod
 
         sheetColTypes={}
