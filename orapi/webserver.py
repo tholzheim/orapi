@@ -143,6 +143,11 @@ class WebServer(AppWrap):
         @self.csrf.exempt
         def publishSeries(series: str):
             publisher=WikiUserInfo.fromWiki(self.wikiUser.getWikiUrl(), request.headers)
+            if not publisher.isVerified():
+                return self._returnErrorMsg(msg="Permission required to upload changes to a the wiki",
+                                            returnToPage=series,
+                                            status='401',
+                                            url=f"{self.wikiUser.getWikiUrl()}/index.php?title={series}")
             publishPagesGenerator=self.publishSeries(series,
                                                      source=self.wikiId,
                                                      target=self.publishWikiUser.wikiId,
@@ -422,7 +427,7 @@ class WebServer(AppWrap):
         buffer.seek(0)
         return send_file(buffer, as_attachment=True, attachment_filename=name, mimetype=mimetype)
 
-    def _returnErrorMsg(self, msg:str, status:str, returnToPage:str):
+    def _returnErrorMsg(self, msg:str, status:str, returnToPage:str, url:str=None):
         """
         Returns the given error message as flash message on a html page
         Args:
@@ -431,8 +436,10 @@ class WebServer(AppWrap):
         Returns:
 
         """
+        if url is None:
+            url=request.referrer
         flash(msg, status)
-        return render_template('errorPage.html', url=request.referrer, title=returnToPage)
+        return render_template('errorPage.html', url=url, title=returnToPage)
 
     def publishSeries(self, series: str, source:str, target: str, publisher:WikiUserInfo):
         """
