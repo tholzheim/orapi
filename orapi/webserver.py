@@ -153,8 +153,8 @@ class WebServer(AppWrap):
                                                      target=self.publishWikiUser.wikiId,
                                                      publisher=publisher)
             publishProgress = self.sseBluePrint.streamDictGenerator(generator=publishPagesGenerator)
-            source = self.wikiUser.scriptPath if self.wikiUser.scriptPath == "orfixed" else self.wikiUser.wikiId
-            target = self.publishWikiUser.scriptPath if self.publishWikiUser.scriptPath == "or" else self.publishWikiUser.wikiId
+            source = "orfixed" if self.wikiUser.scriptPath == "/orfixed" else self.wikiUser.wikiId
+            target = "OpenResearch Clone" if self.publishWikiUser.scriptPath == "/or" else self.publishWikiUser.wikiId
 
             return render_template("publishedPages.html",
                                    series=series,
