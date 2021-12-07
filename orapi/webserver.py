@@ -459,12 +459,12 @@ class WebServer(AppWrap):
             eventsToPublish.append(self.orDataSource.eventSeriesManager.getEventByKey(series))
         for event in self.orDataSource.eventManager.getEventsInSeries(series):
             eventsToPublish.append(event)
-        sourceWikiUser=WikiUser.ofWikiId(source)
+        targetWikiUser=WikiUser.ofWikiId(target)
         def updateAndPush(event):
             wikiFile=wikiFileManager.getWikiFileFromWiki(event.pageTitle)
             template=getattr(event, 'templateName')
             lod={
-                "pageOwner":PageHistory(event.pageTitle, sourceWikiUser.getWikiUrl()).getPageOwner(),
+                "pageCreator":PageHistory(event.pageTitle, targetWikiUser.getWikiUrl()).getPageOwner(),
                 "pageEditor":publisher.name
             }
             wikiFile.updateTemplate(template_name=template,args=lod, overwrite=True)
