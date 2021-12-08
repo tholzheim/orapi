@@ -5,6 +5,8 @@ Created on 2021-08-19
 '''
 from unittest import TestCase
 import time
+import getpass
+import os
 
 class Basetest(TestCase):
     '''
@@ -24,6 +26,14 @@ class Basetest(TestCase):
     def tearDown(self):
         TestCase.tearDown(self)
         self.profiler.time()    
+        
+    def inCI(self):
+        '''
+        are we running in a Continuous Integration Environment?
+        '''
+        publicCI=getpass.getuser() in ["travis", "runner"] 
+        jenkins= "JENKINS_HOME" in os.environ;
+        return publicCI or jenkins
 
 class Profiler:
     '''

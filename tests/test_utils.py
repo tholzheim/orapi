@@ -1,9 +1,10 @@
 from unittest import TestCase
 
 from orapi.utils import PageHistory
+from tests.basetest import Basetest
 
 
-class TestPageHistory(TestCase):
+class TestPageHistory(Basetest):
     """
     Tests the PageHistory class
     """
@@ -12,6 +13,7 @@ class TestPageHistory(TestCase):
         """
         tests the retrival of the pageOwner
         """
+        Basetest.setUp(self)
         wikiUrl="https://www.openresearch.org/mediawiki"
         pageHistory=PageHistory(pageTitle="AAAI", wikiUrl=wikiUrl)
         expectedOwner="Soeren"
