@@ -2,20 +2,20 @@ import itertools
 import os
 import json
 import sys
-from io import BytesIO, StringIO
+from io import BytesIO
 from os import path
 from corpus.event import EventBaseManager
 from fb4.app import AppWrap
 from fb4.sse_bp import SSE_BluePrint
-from fb4.widgets import Widget, LodTable, DropZoneField, ButtonField, Link
+from fb4.widgets import  LodTable, DropZoneField, ButtonField, Link
 from flask_wtf import FlaskForm
 from lodstorage.lod import LOD
 from wikibot.wikiuser import WikiUser
-from wtforms import StringField, SelectField, MultipleFileField, SubmitField, FileField, validators, Field
+from wtforms import SelectField, validators
 from orapi.spreadsheet import OdsDocument, ExcelDocument
 from corpus.datasources.openresearch import OR, OREvent, OREventSeries
 from wikifile.wikiFileManager import WikiFileManager
-from flask import request, send_file, redirect, render_template, flash, jsonify, Response, url_for
+from flask import request, send_file, redirect, render_template, flash, jsonify, Response
 
 from orapi.utils import WikiUserInfo, PageHistory
 
