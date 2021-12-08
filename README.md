@@ -4,7 +4,7 @@ The api provides an interface to get and update event records of [OpenResearch](
 
 [![GitHub issues](https://img.shields.io/github/issues/tholzheim/orapi.svg)](https://github.com/tholzheim/orapi/issues)
 [![GitHub issues](https://img.shields.io/github/issues-closed/tholzheim/orapi.svg)](https://github.com/tholzheim/orapi/issues/?q=is%3Aissue+is%3Aclosed)
-[![Github Actions Build](https://github.com/tholzheim/orapi/workflows/Build/badge.svg?branch=master)](https://github.com/holzheim/orapi/actions?query=workflow%3ABuild+branch%3Amaster)
+[![Github Actions Build](https://github.com/tholzheim/orapi/workflows/Build/badge.svg?branch=master)](https://github.com/tholzheim/orapi/actions?query=workflow%3ABuild+branch%3Amaster)
 
 
 # OPEN RESEARCH
