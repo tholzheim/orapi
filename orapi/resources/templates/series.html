@@ -7,7 +7,7 @@
 {% block content %}
     {% if progress %}
         <h1>Upload progress</h1>
-        {{ progress.progressMessages(5, completdeMsg="Upload completed")|safe }}
+        {{ progress.progressMessages()|safe }}
     {% endif %}
     <h1>Series Overview</h1>
     {% block download %}
