@@ -2,6 +2,9 @@
 
 The api provides an interface to get and update event records of [OpenResearch](https://confident.dbis.rwth-aachen.de/or/index.php?title=Main_Page).
 
+[![GitHub issues](https://img.shields.io/github/issues/tholzheim/orapi.svg)](https://github.com/tholzheim/orapi/issues)
+[![GitHub issues](https://img.shields.io/github/issues-closed/tholzheim/orapi.svg)](https://github.com/tholzheim/orapi/issues/?q=is%3Aissue+is%3Aclosed)
+
 # OPEN RESEARCH
 
 This repository is mainly used as an RESTFul API to modify data for
@@ -11,7 +14,7 @@ This repository is mainly used as an RESTFul API to modify data for
 # ConfIDent
 The solution is created as part of the
 [![ConfIDent Logo](https://projects.tib.eu/fileadmin/templates/confident/tib_projects_confident_1150.jpg)](https://www.openresearch.org)
-projects
+project
 
 ## Public Links
 * [OPENRESEARCH](https://www.openresearch.org)
