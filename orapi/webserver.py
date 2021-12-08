@@ -16,7 +16,7 @@ from orapi.spreadsheet import OdsDocument, ExcelDocument
 from corpus.datasources.openresearch import OR, OREvent, OREventSeries
 from wikifile.wikiFileManager import WikiFileManager
 from flask import request, send_file, redirect, render_template, flash, jsonify, Response
-
+import socket
 from orapi.utils import WikiUserInfo, PageHistory
 
 
@@ -25,7 +25,7 @@ class WebServer(AppWrap):
     RESTful api to access and modify OPENRESAECH data
     """
 
-    def __init__(self, host='0.0.0.0', port=8558, verbose=True, debug=False):
+    def __init__(self, host=None, port=8558, verbose=True, debug=False):
         '''
         constructor
 
@@ -39,6 +39,8 @@ class WebServer(AppWrap):
         self.verbose = verbose
         scriptdir = os.path.dirname(os.path.abspath(__file__))
         template_folder = scriptdir + '/resources/templates'
+        if host is None:
+            host=socket.gethostname()
         super().__init__(host=host, port=port, debug=debug, template_folder=template_folder)
         self.app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///:memory:'
         self.app.app_context().push()
