@@ -1,12 +1,16 @@
 from unittest import TestCase
 from tempfile import TemporaryDirectory
 from datetime import datetime, date
-from orapi.odsDocument import OdsDocument, ExcelDocument
+from orapi.spreadsheet import OdsDocument, ExcelDocument
+from tests.basetest import Basetest
 
-
-class TestOdsDocument(TestCase):
+class TestSpreadsheetRoundtrip(Basetest):
+    '''
+    Tests roundtrip from dict to Spreadsheet and Back
+    '''
 
     def setUp(self) -> None:
+        Basetest.setUp(self)
         self.tmpDir = TemporaryDirectory(prefix=self.__class__.__name__)
         self.testLoD=[
             {

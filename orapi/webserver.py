@@ -2,14 +2,8 @@ import itertools
 import os
 import json
 import sys
-import uuid
 from io import BytesIO, StringIO
-
-import requests
 from os import path
-from typing import List
-
-import wikibot.wikipush
 from corpus.event import EventBaseManager
 from fb4.app import AppWrap
 from fb4.sse_bp import SSE_BluePrint
@@ -18,7 +12,7 @@ from flask_wtf import FlaskForm
 from lodstorage.lod import LOD
 from wikibot.wikiuser import WikiUser
 from wtforms import StringField, SelectField, MultipleFileField, SubmitField, FileField, validators, Field
-from orapi.odsDocument import OdsDocument, ExcelDocument
+from orapi.spreadsheet import OdsDocument, ExcelDocument
 from corpus.datasources.openresearch import OR, OREvent, OREventSeries
 from wikifile.wikiFileManager import WikiFileManager
 from flask import request, send_file, redirect, render_template, flash, jsonify, Response, url_for

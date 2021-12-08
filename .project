@@ -3,6 +3,8 @@
 	<name>orapi</name>
 	<comment></comment>
 	<projects>
+		<project>pyFlaskBootstrap4</project>
+		<project>wikirender</project>
 	</projects>
 	<buildSpec>
 		<buildCommand>
