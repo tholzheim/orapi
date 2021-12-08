@@ -459,8 +459,11 @@ class WebServer(AppWrap):
         def updateAndPush(event):
             wikiFile=wikiFileManager.getWikiFileFromWiki(event.pageTitle)
             template=getattr(event, 'templateName')
+            pageCreator=PageHistory(event.pageTitle, targetWikiUser.getWikiUrl()).getPageOwner()
+            if pageCreator is None:
+                pageCreator=publisher.name
             lod={
-                "pageCreator":PageHistory(event.pageTitle, targetWikiUser.getWikiUrl()).getPageOwner(),
+                "pageCreator":pageCreator,
                 "pageEditor":publisher.name
             }
             wikiFile.updateTemplate(template_name=template,args=lod, overwrite=True)
