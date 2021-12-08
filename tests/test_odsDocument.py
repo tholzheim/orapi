@@ -67,6 +67,10 @@ class TestExcelDocument(TestCase):
                 "url":"http://www.opendocumentformat.org/developers"
             },
         ]
+        self.samples=samples={
+            "Persons":self.testLoD,
+            "Persons2": self.testLoD
+        }
 
     def tearDown(self) -> None:
         self.tmpDir.cleanup()
@@ -94,11 +98,8 @@ class TestExcelDocument(TestCase):
         doc.addTable("Persons2", self.testLoD)
         doc.saveToFile(fileName)
         docReloaded=ExcelDocument("TestReloaded")
-        samples={
-            "Persons":self.testLoD,
-            "Persons2": self.testLoD
-        }
-        docReloaded.loadFromFile(fileName, samples=samples)
+
+        docReloaded.loadFromFile(fileName, samples=self.samples)
         extractedData=docReloaded.getTable("Persons")
         self.assertLodEqual(self.testLoD, extractedData)
 
@@ -110,6 +111,6 @@ class TestExcelDocument(TestCase):
         doc.addTable("Persons", self.testLoD)
         buffer = doc.toBytesIO()
         docReloaded = ExcelDocument("TestReloaded")
-        docReloaded.loadFromFile(buffer)
+        docReloaded.loadFromFile(buffer, self.samples)
         extractedData = docReloaded.getTable("Persons")
         self.assertLodEqual(self.testLoD, extractedData)
