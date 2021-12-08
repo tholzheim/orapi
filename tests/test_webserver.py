@@ -4,6 +4,8 @@ from unittest import TestCase
 import requests
 from lodstorage.csv import CSV
 
+from tests.utils import Utils
+
 
 class TestWebServer(TestCase):
     """Test the WebServers RESTful interface"""
@@ -26,6 +28,8 @@ class TestWebServer(TestCase):
         """
         tests the downloading of the complete series and events in different formats
         """
+        if Utils.inCI():
+            return
         urlSeries = "http://localhost:8558/api/series"
         urlEvents = "http://localhost:8558/api/events"
         testMatrix={
