@@ -11,9 +11,40 @@ from lodstorage.lod import LOD
 from odf.opendocument import load
 from odf.opendocument import OpenDocumentSpreadsheet
 from odf.table import Table, TableColumn, TableRow, TableCell
+from enum import Enum,auto
 
+class SpreadSheetType(Enum):
+    '''
+    Entities of openresearch.
+    Used to specify for a fixer the domain of operation.
+    '''
+    CSV=auto()
+    EXCEL=auto()
+    ODS=auto()
+    
+class SpreadSheet:
+    '''
+    i am spreadsheet
+    '''
+    
+    def __init__(self,name:str,spreadSheetType:SpreadSheetType):
+        '''
+        constructor
+        '''
+        self.name=name
+        self.spreadSheetType=spreadSheetType
+        self.tables={} # dict of lods
+        pass
+    
+class CSVSpreadSheet(SpreadSheet):
+    '''
+    CSV Spreadsheet packaging as ZIP file of CSV files
+    '''
+    def __init__(self, name: str):
+        super().__init__(name=name, spreadSheetType=SpreadSheetType.CSV)
+        
 
-class ExcelDocument:
+class ExcelDocument(SpreadSheet):
     """
     Provides methods to convert LoDs to an excel document and vice versa
     """
@@ -25,8 +56,8 @@ class ExcelDocument:
         Args:
             name(str): name of the document
         """
-        self.name = name
-        self.tables={}
+        super().__init__(name=name, spreadSheetType=SpreadSheetType.EXCEL)
+        
 
     @property
     def filename(self):
@@ -147,7 +178,7 @@ class ExcelDocument:
         else:
             _loadFromFile(file)
 
-class OdsDocument:
+class OdsDocument(SpreadSheet):
     """
     OpenDocument Spreadsheet that can store multiple tables.
     Provides functions to traverse between LoD and ODS document
