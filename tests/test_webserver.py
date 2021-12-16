@@ -65,17 +65,17 @@ class TestWebServer(Basetest):
         # test series
         for testVariant in testMatrix.values():
             
-            response = requests.request("GET", urlSeries,
+            response = self.client.get(path=urlSeries,
                                         headers=testVariant.get("headers"),
-                                        params=testVariant.get("params"))
+                                        query_string=testVariant.get("params"))
             series=testVariant.get("responseTransform")(response)
             self.assertTrue(len(series) > 1000)
             self.assertTrue("pageTitle" in series[0])
         # test events
         for testVariant in testMatrix.values():
-            response = requests.request("GET", urlEvents,
+            response = self.client.get(path=urlEvents,
                                         headers=testVariant.get("headers"),
-                                        params=testVariant.get("params"))
+                                        query_string=testVariant.get("params"))
             series = testVariant.get("responseTransform")(response)
             self.assertTrue(len(series) > 9000)
             self.assertTrue("pageTitle" in series[0])

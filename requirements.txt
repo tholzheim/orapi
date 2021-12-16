@@ -18,6 +18,8 @@ APScheduler
 XlsxWriter
 # https://openpyxl.readthedocs.io/en/stable/
 openpyxl
+# https://github.com/WolfgangFahl/pyOnlineSpreadSheetEditing
+pyOnlineSpreadSheetEditing
 
 requests~=2.26.0
 Flask~=2.0.2
