@@ -1,6 +1,4 @@
-from spreadsheet.spreadsheet import SpreadSheetType
-
-from orapi.orapi import OrApi
+from orapi.orapiservice import OrApi
 from tests.basetest import Basetest
 
 

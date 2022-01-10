@@ -5,5 +5,10 @@
 {% import 'macros.html' as macros %}
 {% from 'bootstrap/table.html' import render_table %}
 {% block content %}
+    {{ render_form(downloadForm) }}
 
+    {% if progress %}
+        <h1>Progress</h1>
+        {{ progress.progressWithDisplayOfResult()|safe }}
+    {% endif %}
 {% endblock %}

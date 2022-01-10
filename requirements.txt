@@ -19,7 +19,9 @@ XlsxWriter
 # https://openpyxl.readthedocs.io/en/stable/
 openpyxl
 # https://github.com/WolfgangFahl/pyOnlineSpreadSheetEditing
-pyOnlineSpreadSheetEditing
+pyOnlineSpreadSheetEditing==0.0.3
+
+OpenResearchMigration
 
 requests~=2.26.0
 Flask~=2.0.2
