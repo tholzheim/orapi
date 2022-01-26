@@ -63,7 +63,7 @@ class OrApi:
         self.eventTemplateProps={"pageTitle":"pageTitle", **{value:key for key, value in OREvent.getTemplateParamLookup().items()}}
         self.seriesTemplateProps = {"pageTitle":"pageTitle", **{value:key for key, value in OREventSeries.getTemplateParamLookup().items()}}
         self.optionalEnhancers={
-            **OrMigrateWrapper.getOrMigrateFixers()
+            **OrMigrateWrapper.getOrMigrateFixers(wikiId)
         }
 
     def getSeriesQuery(self, seriesAcronym:str) -> dict:
@@ -388,12 +388,16 @@ class OrMigrateWrapper(object):
     """
 
     @staticmethod
-    def getOrMigrateFixers()->dict:
+    def getOrMigrateFixers(wikiid:str)->dict:
         """
+        Args:
+            wikiid(str): id of the wiki
+
         Returns dict of all ormigrate fixers that have a fixer class
         """
         fixers={}
-        manager = PageFixerManager(pageFixerClassList=[f for f in PageFixerManager.getAllFixers() if f.__name__ != 'CountryFixer'], wikiFileManager=None)
+        wikiFileManager=WikiFileManager(sourceWikiId=wikiid)
+        manager = PageFixerManager(pageFixerClassList=[f for f in PageFixerManager.getAllFixers() if f.__name__ != 'CountryFixer'], wikiFileManager=wikiFileManager)
         fixersWithFixFn = {k:f for k,f in manager.pageFixers.items() if PageFixerManager.hasFixer(f)}
         for name, fixer in fixersWithFixFn.items():
             fixers[name]=partial(OrMigrateWrapper._applyFixer, fixer=fixer)
