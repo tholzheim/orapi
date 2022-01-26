@@ -13,7 +13,7 @@ class TestOrApi(Basetest):
     def setUp(self,debug=False,profile=True):
         super().setUp(debug=debug, profile=profile)
         self.testSeriesAcronym="AAAI"
-        self.orapi=OrApi(wikiId="orfixed", debug=True)
+        self.orapi=OrApi(wikiId=getattr(self.getWikiUser("orfixed"), "wikiId"), debug=True)
 
 
     def test_getSeriesTableQuery(self):

@@ -11,7 +11,7 @@ class TestOrApi(Basetest):
         """
         tests the extraction and conversion to LoD of a series
         """
-        orApi=OrApi(wikiId="orfixed")
+        orApi=OrApi(wikiId=getattr(self.getWikiUser("orfixed"), "wikiId"))
         tableQuery=orApi.getSeriesTableQuery("AAAI")
         if self.debug:
             print(tableQuery.tableEditing.lods)
