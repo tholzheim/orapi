@@ -12,7 +12,7 @@ from markupsafe import Markup
 from spreadsheet.spreadsheet import ExcelDocument, OdsDocument, SpreadSheetType
 from werkzeug.exceptions import Unauthorized
 from wikibot.wikiuser import WikiUser
-from wtforms import SelectField, SelectMultipleField, SubmitField
+from wtforms import SelectField, SelectMultipleField, SubmitField, BooleanField
 from wtforms.widgets import Select as Select
 from orapi.orapiservice import OrApi, WikiTableEditing
 from wikifile.wikiFileManager import WikiFileManager
@@ -144,10 +144,14 @@ class WebServer(AppWrap):
         cookie=request.headers.get("Cookie")
         if len(request.files) == 1:  #ToDo Extend for multiple file upload
             tableEditing=self.orapi.getTableEditingFromSpreadsheet(list(request.files.values())[0], publisher)
+            self.orapi.addPageHistoryProperties(tableEditing)
             try:
                 def generator(tableEditing:WikiTableEditing):
-                    updateGenerator = self.orapi.publishTableGenerator(tableEditing, userWikiSessionCookie=cookie)
-                    yield from updateGenerator
+                    if not uploadForm.isDryRun:
+                        updateGenerator = self.orapi.publishTableGenerator(tableEditing, userWikiSessionCookie=cookie)
+                        yield from updateGenerator
+                    else:
+                        yield "Dry Run!!!"
                     seriesTable, eventsTable = self.orapi.getHtmlTables(tableEditing)
                     yield DictStreamResult(str(seriesTable) + str(eventsTable))
                 uploadProgress=self.sseBluePrint.streamDictGenerator(generator(tableEditing))
@@ -284,6 +288,7 @@ class UploadForm(FlaskForm):
                                      render_kw={"placeholder": "Enhancement steps to apply before downloading",
                                                 "allowClear": 'true'})
     dropzone = DropZoneField(id="files", url="/api/upload/series", uploadId="upload",configParams={'acceptedFiles': ".ods, .xlsx"})
+    dryRun = BooleanField(id="Dry run", default="checked")
     upload = ButtonField()
 
     def __init__(self, enhancerChoices:list=None):
@@ -300,6 +305,9 @@ class UploadForm(FlaskForm):
         if hasattr(self, 'data'):
             return self.data.get('enhancements', [])
 
+    @property
+    def isDryRun(self)->bool:
+        return self.dryRun.data
 
 DEBUG = False
 

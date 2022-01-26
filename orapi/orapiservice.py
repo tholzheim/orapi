@@ -1,16 +1,14 @@
+import copy
 from collections import Generator
+from datetime import datetime
 from functools import partial
-from typing import List, cast
+from typing import cast
 
 from corpus.datasources.openresearch import OREvent, OREventSeries
-from fb4.sse_bp import DictStreamResult
 from fb4.widgets import Link, Image, LodTable
-from jinja2 import Markup
 from lodstorage.jsonable import JSONAble
 from lodstorage.lod import LOD
-from lodstorage.query import Query
 from ormigrate.fixer import ORFixer
-from ormigrate.issue220_location import LocationFixer
 from ormigrate.smw.pagefixer import PageFixerManager
 from ormigrate.smw.rating import EntityRating
 from spreadsheet.spreadsheet import SpreadSheet
@@ -192,7 +190,6 @@ class OrApi:
         Raises:
         Unauthorized if the user is not logged into the wiki or does not have the required rights to edit pages
         """
-        self.addPageHistoryProperties(tableEditing)
         if self.authUpdates:
             wikiUserInfo=WikiUserInfo.fromWiki(self.wikiUrl, headers={"Cookie":userWikiSessionCookie})
             if not wikiUserInfo.isVerified():
@@ -202,16 +199,27 @@ class OrApi:
         for entityType, entities in tableEditing.lods.items():
             if isinstance(entities, list):
                 for entity in entities:
+                    self.normalizePropsForWiki(entity)
                     if isinstance(entity, dict):
-                        entity = entity.copy()
+                        entity = copy.deepcopy(entity)
                         pageTitle=entity.get('pageTitle')
                         del entity["pageTitle"]
                         # ToDo: Limit entity properties to existing entity properties
                         yield f"Updating {pageTitle} ..."
                         wikiFile=wikiFileManager.getWikiFileFromWiki(pageTitle)
-                        wikiFile.updateTemplate(template_name=entityType, args=entity, prettify=True)
+                        wikiFile.updateTemplate(template_name=entityType, args=entity, prettify=True, overwrite=True)
                         wikiFile.pushToWiki(f"Updated through orapi")
                         yield "✅<br>"
+
+    def normalizePropsForWiki(self, entity:dict):
+        for key, value in entity.items():
+            if isinstance(value, datetime):
+                if value.hour == 0 and value.minute == 0:
+                    entity[key] = value.date()
+            elif isinstance(value, float):
+                if (value).is_integer():
+                    entity[key]=int(value)
+
 
     @property
     def wikiUrl(self):
@@ -225,6 +233,8 @@ class OrApi:
             tableEditing: table to be edited
         """
         for name, lods in tableEditing.lods.items():
+            if lods is None:
+                continue
             for record in lods:
                 if isinstance(record, dict):
                     pageTitle=record.get("pageTitle")
@@ -315,6 +325,7 @@ class OrApi:
         Returns:
 
         """
+        lods=copy.deepcopy(tableEditing.lods)
         valueMap = {
             "pageTitle": lambda value: Link(url=f"{self.wikiUrl}/index.php?title={value}", title=value),
             "Homepage": lambda value: Link(url=value, title=value),
@@ -327,8 +338,8 @@ class OrApi:
             "TibKatId": lambda value: Link(url=f"https://www.tib.eu/en/search/id/TIBKAT:{value}", title=value),
             "Logo": lambda value: Image(url=f"{self.wikiUrl}/index.php?title=Special:Redirect/file/File:{value}",alt=value) if value else value
         }
-        seriesLod = self.convertLodValues(tableEditing.lods[OrApi.SERIES_TEMPLATE_NAME], valueMap)
-        eventLod = self.convertLodValues(tableEditing.lods[OrApi.EVENT_TEMPLATE_NAME], valueMap)
+        seriesLod = self.convertLodValues(lods[OrApi.SERIES_TEMPLATE_NAME], valueMap)
+        eventLod = self.convertLodValues(lods[OrApi.EVENT_TEMPLATE_NAME], valueMap)
         seriesTable = LodTable(seriesLod, headers={v: v for v in LOD.getFields(seriesLod)},name="Event series")
         eventsTable = LodTable(eventLod, headers={v: v for v in LOD.getFields(eventLod)},
                                name="Events", isDatatable=True)
