@@ -3,6 +3,7 @@
 	<name>orapi</name>
 	<comment></comment>
 	<projects>
+		<project>ConferenceCorpus</project>
 		<project>pyFlaskBootstrap4</project>
 		<project>wikirender</project>
 	</projects>
