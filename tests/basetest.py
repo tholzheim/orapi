@@ -8,6 +8,7 @@ import time
 import getpass
 import os
 
+from corpus.eventcorpus import EventCorpus
 from wikibot.wikiuser import WikiUser
 from wikifile.wikiFileManager import WikiFileManager
 
@@ -26,6 +27,7 @@ class Basetest(TestCase):
         self.profile=profile
         msg=f"test {self._testMethodName}, debug={self.debug}"
         self.profiler=Profiler(msg,profile=self.profile)
+        EventCorpus.download()
         
     def tearDown(self):
         TestCase.tearDown(self)
