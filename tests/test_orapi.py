@@ -23,7 +23,7 @@ class TestOrApi(Basetest):
         """
         tests the extraction and conversion to LoD of a series
         """
-        orApi=OrApi(wikiId="orfixed")
+        orApi=OrApi(wikiId=getattr(self.getWikiUser("orfixed"), "wikiId"))
         tableEditing=orApi.getSeriesTableEditing("AAAI")
         print(tableEditing.lods)
         self.assertTrue(len(tableEditing.lods[OrApi.SERIES_TEMPLATE_NAME]) > 0)
