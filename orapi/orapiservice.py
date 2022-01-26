@@ -396,7 +396,7 @@ class OrMigrateWrapper(object):
         Returns dict of all ormigrate fixers that have a fixer class
         """
         fixers={}
-        wikiFileManager=WikiFileManager(sourceWikiId=wikiid)
+        wikiFileManager=WikiFileManager(sourceWikiId=wikiid, login=False)
         manager = PageFixerManager(pageFixerClassList=[f for f in PageFixerManager.getAllFixers() if f.__name__ != 'CountryFixer'], wikiFileManager=wikiFileManager)
         fixersWithFixFn = {k:f for k,f in manager.pageFixers.items() if PageFixerManager.hasFixer(f)}
         for name, fixer in fixersWithFixFn.items():
