@@ -9,7 +9,7 @@ from fb4.widgets import LodTable, DropZoneField, ButtonField, Link, Menu, MenuIt
 from flask_wtf import FlaskForm
 from lodstorage.lod import LOD
 from markupsafe import Markup
-from spreadsheet.spreadsheet import ExcelDocument, OdsDocument, SpreadSheetType
+from onlinespreadsheet.spreadsheet import SpreadSheetType
 from werkzeug.exceptions import Unauthorized
 from wikibot.wikiuser import WikiUser
 from wtforms import SelectField, SelectMultipleField, SubmitField, BooleanField

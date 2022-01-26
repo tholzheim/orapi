@@ -19,7 +19,7 @@ XlsxWriter
 # https://openpyxl.readthedocs.io/en/stable/
 openpyxl
 # https://github.com/WolfgangFahl/pyOnlineSpreadSheetEditing
-pyOnlineSpreadSheetEditing==0.0.3
+pyOnlineSpreadSheetEditing==0.0.5
 
 OpenResearchMigration
 
@@ -27,6 +27,6 @@ requests~=2.26.0
 Flask~=2.0.2
 python-dateutil~=2.8.2
 tabulate~=0.8.9
-WTForms~=2.3.3
+WTForms>=2.3.3
 pandas~=1.3.4
 setuptools~=57.0.0

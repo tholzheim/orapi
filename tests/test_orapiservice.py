@@ -1,8 +1,6 @@
 from collections import Generator
-
-from spreadsheet.tableediting import TableEditing
-from spreadsheet.tablequery import TableQuery
-
+from onlinespreadsheet.tableediting import TableEditing
+from onlinespreadsheet.tablequery import TableQuery
 from orapi.orapiservice import OrApi
 from tests.basetest import Basetest
 

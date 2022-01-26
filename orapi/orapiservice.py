@@ -8,12 +8,12 @@ from corpus.datasources.openresearch import OREvent, OREventSeries
 from fb4.widgets import Link, Image, LodTable
 from lodstorage.jsonable import JSONAble
 from lodstorage.lod import LOD
+from onlinespreadsheet.spreadsheet import SpreadSheet
+from onlinespreadsheet.tableediting import TableEditing
+from onlinespreadsheet.tablequery import TableQuery
 from ormigrate.fixer import ORFixer
 from ormigrate.smw.pagefixer import PageFixerManager
 from ormigrate.smw.rating import EntityRating
-from spreadsheet.spreadsheet import SpreadSheet
-from spreadsheet.tableediting import TableEditing
-from spreadsheet.tablequery import TableQuery
 from werkzeug.exceptions import Unauthorized
 from wikibot.wikiuser import WikiUser
 from wikifile.wikiFile import WikiFile
