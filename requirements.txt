@@ -21,7 +21,7 @@ openpyxl
 # https://github.com/WolfgangFahl/pyOnlineSpreadSheetEditing
 pyOnlineSpreadSheetEditing==0.0.5
 
-OpenResearchMigration
+OpenResearchMigration>=0.0.30
 
 requests~=2.26.0
 Flask~=2.0.2
