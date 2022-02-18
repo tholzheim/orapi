@@ -5,20 +5,7 @@
 {% import 'macros.html' as macros %}
 {% from 'bootstrap/table.html' import render_table %}
 {% block content %}
-    {% if progress %}
-        <h1>Upload progress</h1>
-        {{ progress.progressMessages()|safe }}
-    {% endif %}
-    <h1>Series Overview</h1>
-    {% block download %}
-        {{ render_form(downloadForm) }}
-
-        <script>$(document).ready(function() {
-    $('#search').select2();
-});</script>
-    {% endblock %}
 
     {{ series|safe }}
-    {{ events|safe }}
 
 {% endblock %}

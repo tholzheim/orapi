@@ -1,24 +1,22 @@
 import os
 import sys
-from enum import Enum, auto, EnumMeta
+from enum import Enum, auto
 from io import BytesIO
 from os import path
 from fb4.app import AppWrap
 from fb4.sse_bp import SSE_BluePrint, DictStreamResult, DictStreamFileResult
-from fb4.widgets import LodTable, DropZoneField, ButtonField, Link, Menu, MenuItem, Image
+from fb4.widgets import DropZoneField, ButtonField, Menu, MenuItem, LodTable
 from flask_wtf import FlaskForm
 from lodstorage.lod import LOD
 from markupsafe import Markup
-from onlinespreadsheet.spreadsheet import SpreadSheetType
+from onlinespreadsheet.spreadsheet import SpreadSheetType, ExcelDocument, OdsDocument
 from werkzeug.exceptions import Unauthorized
-from wikibot.wikiuser import WikiUser
 from wtforms import SelectField, SelectMultipleField, SubmitField, BooleanField
 from wtforms.widgets import Select as Select
 from orapi.orapiservice import OrApi, WikiTableEditing
-from wikifile.wikiFileManager import WikiFileManager
-from flask import request, send_file, redirect, render_template, flash, jsonify, Response, session, url_for
+from flask import request, send_file, render_template, flash, jsonify, url_for
 import socket
-from orapi.utils import WikiUserInfo, PageHistory
+from orapi.utils import WikiUserInfo
 
 
 class ResponseType(Enum):
@@ -74,6 +72,11 @@ class WebServer(AppWrap):
         @self.csrf.exempt
         def updateSeries():
             return self.updateSeries()
+
+        @self.app.route('/api/series')
+        @self.csrf.exempt
+        def getListOfDblpSeries():
+            return self.getListOfDblpSeries()
 
     def init(self,orApi:OrApi):
         """
@@ -165,6 +168,20 @@ class WebServer(AppWrap):
                                uploadForm=uploadForm,
                                progress=uploadProgress)
 
+    def getListOfDblpSeries(self):
+        """
+        Returns the list of DBLPEventSeries of the requested wiki
+        """
+        #ToDo: Add wiki selection
+        lod = self.orapi.getListOfDblpEventSeries()
+        lod = self.orapi.convertLodValues(lod, self.orapi.propertyToLinkMap())
+        #ToDo: Add Download, publish column with link to corresponding page
+        return render_template('series.html',
+                               series=LodTable(lod=lod, name="List of DBLPEventSeries"),
+                               menu=self.getMenuList())
+
+
+
     def sendFile(self, data:str, name:str,mimetype:str="text" ):
         """
         Send the given string as file
@@ -225,6 +242,7 @@ class WebServer(AppWrap):
         menu=Menu()
         menu.addItem(MenuItem("/","Home"))
         menu.addItem(MenuItem(url_for("updateSeries"),"Upload"))
+        menu.addItem(MenuItem(url_for("getListOfDblpSeries"),"Series"))
         menu.addItem(MenuItem('https://github.com/tholzheim/orapi','github'))
         menu.addItem(MenuItem('https://github.com/tholzheim/orapi', 'openresearch'))
         menu.addItem(MenuItem('https://confident.dbis.rwth-aachen.de/or/index.php?title=Main_Page', 'orclone'))
@@ -256,6 +274,7 @@ class DownloadForm(FlaskForm):
     """
     download event series and events in different formats and allow to select different Enhancement steps
     """
+    sourceWiki = SelectField("Source wiki", default="None")
     enhancements=SelectMultipleField("Enhancements",
                                      widget=Select2Widget(multiple=True),
                                      render_kw={"placeholder": "Enhancement steps to apply before downloading",
@@ -263,10 +282,11 @@ class DownloadForm(FlaskForm):
     format=SelectField()
     submit=SubmitField(label="Download")
 
-    def __init__(self, enhancerChoices:list=None, formatChoices:list=None):
+    def __init__(self, enhancerChoices:list=None, formatChoices:list=None, sourceWikiChoices:list=None):
         super(DownloadForm, self).__init__()
         self.enhancements.choices=enhancerChoices
         self.format.choices=formatChoices
+        self.sourceWiki.choices=sourceWikiChoices
 
     @property
     def responseFormat(self)->ResponseType:
@@ -278,11 +298,17 @@ class DownloadForm(FlaskForm):
         if hasattr(self, 'data'):
             return self.data.get('enhancements', [])
 
+    @property
+    def chosenSourceWiki(self) -> str:
+        if hasattr(self, 'data'):
+            return self.data.get('sourceWiki', None)
+
 
 class UploadForm(FlaskForm):
     """
     download event series and events in different formats and allow to select different Enhancement steps
     """
+    targetWiki=SelectField("Target wiki", default="None")
     enhancements=SelectMultipleField("Enhancements",
                                      widget=Select2Widget(multiple=True),
                                      render_kw={"placeholder": "Enhancement steps to apply before downloading",
@@ -291,9 +317,10 @@ class UploadForm(FlaskForm):
     dryRun = BooleanField(id="Dry run", default="checked")
     upload = ButtonField()
 
-    def __init__(self, enhancerChoices:list=None):
+    def __init__(self, enhancerChoices:list=None, targetWikiChoices:list=None):
         super().__init__()
         self.enhancements.choices=enhancerChoices
+        self.targetWiki.choices=targetWikiChoices
 
     @property
     def responseFormat(self)->ResponseType:
@@ -304,6 +331,11 @@ class UploadForm(FlaskForm):
     def chosenEnhancers(self):
         if hasattr(self, 'data'):
             return self.data.get('enhancements', [])
+
+    @property
+    def chosenTargetWiki(self) -> str:
+        if hasattr(self, 'data'):
+            return self.data.get('targetWiki', None)
 
     @property
     def isDryRun(self)->bool:
@@ -323,6 +355,7 @@ def main(argv=None):
     parser.add_argument('--verbose', default=True, action="store_true", help="should relevant server actions be logged [default: %(default)s]")
     args = parser.parse_args()
     web.optionalDebug(args)
+    #ToDo: Exchange OrApi with OrApi Service
     web.init(orApi=OrApi(wikiId=args.target, authUpdates=False))
     web.run(args)
 

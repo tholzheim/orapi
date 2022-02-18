@@ -63,7 +63,7 @@ class OrApi:
         self.eventTemplateProps={"pageTitle":"pageTitle", **{value:key for key, value in OREvent.getTemplateParamLookup().items()}}
         self.seriesTemplateProps = {"pageTitle":"pageTitle", **{value:key for key, value in OREventSeries.getTemplateParamLookup().items()}}
         self.optionalEnhancers={
-            **OrMigrateWrapper.getOrMigrateFixers(wikiId)
+            #**OrMigrateWrapper.getOrMigrateFixers(wikiId)
         }
 
     def getSeriesQuery(self, seriesAcronym:str) -> dict:
@@ -109,6 +109,27 @@ class OrApi:
         askQueries=[self.getSeriesQuery(seriesAcronym), self.getEventsOfSeriesQuery(seriesAcronym)]
         tableQuery.fromAskQueries(wikiId=self.wikiId, askQueries=askQueries)
         return tableQuery
+
+    def getListOfDblpEventSeries(self) -> list:
+        """
+        Retries a list of all dblp event series
+        """
+        query = """
+        {{#ask: [[IsA::Event series]][[DblpSeries::+]] || [[Has_Bibliography::+]] || [[WikiCfpSeries::+]]
+        | mainlabel=pageTitle
+        |?title=title
+        |?Homepage=homepage
+        |?Has_Bibliography=Has Bibliography
+        |?DblpSeries=DblpSeries
+        |?Wikidataid=wikidataId
+        |?WikiCfpSeries=WikiCfpSeries
+        |format=table
+        |limit=200
+        }}
+        """
+        tableQuery = TableQuery(debug=self.debug)
+        tableQuery.fromAskQueries(wikiId=self.wikiId, askQueries=[{"name":"List of DBLPEventSeries", "ask":query}])
+        return list(tableQuery.tableEditing.lods.values())[0]
 
     def getSeriesTableEditing(self, seriesAcronym:str, enhancers:list=None):
         """
@@ -326,7 +347,19 @@ class OrApi:
 
         """
         lods=copy.deepcopy(tableEditing.lods)
-        valueMap = {
+        valueMap = self.propertyToLinkMap()
+        seriesLod = self.convertLodValues(lods[OrApi.SERIES_TEMPLATE_NAME], valueMap)
+        eventLod = self.convertLodValues(lods[OrApi.EVENT_TEMPLATE_NAME], valueMap)
+        seriesTable = LodTable(seriesLod, headers={v: v for v in LOD.getFields(seriesLod)},name="Event series")
+        eventsTable = LodTable(eventLod, headers={v: v for v in LOD.getFields(eventLod)},
+                               name="Events", isDatatable=True)
+        return seriesTable, eventsTable
+
+    def propertyToLinkMap(self) -> dict:
+        """
+        Returns a mapping to convert a property to the corresponding link
+        """
+        map={
             "pageTitle": lambda value: Link(url=f"{self.wikiUrl}/index.php?title={value}", title=value),
             "Homepage": lambda value: Link(url=value, title=value),
             "wikidataId": lambda value: Link(url=f"https://www.wikidata.org/wiki/{value}", title=value),
@@ -338,12 +371,7 @@ class OrApi:
             "TibKatId": lambda value: Link(url=f"https://www.tib.eu/en/search/id/TIBKAT:{value}", title=value),
             "Logo": lambda value: Image(url=f"{self.wikiUrl}/index.php?title=Special:Redirect/file/File:{value}",alt=value) if value else value
         }
-        seriesLod = self.convertLodValues(lods[OrApi.SERIES_TEMPLATE_NAME], valueMap)
-        eventLod = self.convertLodValues(lods[OrApi.EVENT_TEMPLATE_NAME], valueMap)
-        seriesTable = LodTable(seriesLod, headers={v: v for v in LOD.getFields(seriesLod)},name="Event series")
-        eventsTable = LodTable(eventLod, headers={v: v for v in LOD.getFields(eventLod)},
-                               name="Events", isDatatable=True)
-        return seriesTable, eventsTable
+        return map
 
     @staticmethod
     def convertLodValues(lod: list, valueMap: dict):
@@ -382,6 +410,52 @@ class OrApi:
         return [{map.get(k,k):v for k,v in d.items() if not strictMapping or k in map}for d in lod]
 
 
+class OrApiService:
+    """
+    Handles OrApi for multiple wikis
+    """
+
+    def __init__(self, wikiIds:list, authUpdates:bool=True, debug:bool=False):
+        """
+
+        Args:
+            wikiIds: wiki ids for wich an ArApi should be provided
+            authUpdates: apply updates to the wiki only if user is authenticated
+            debug: print debug output if true
+        """
+        self.debug=debug
+        self.orapis={}
+        for wikiId in wikiIds:
+            self.orapis[wikiId]=OrApi(wikiId=wikiId, authUpdates=authUpdates, debug=debug)
+
+    def getOrApi(self, wikiId) -> OrApi:
+        """
+        Returns the OrApi corresponding to the given wikiId
+        Args:
+            wikiId: wiki id
+
+        Returns:
+            OrApi
+        """
+        return self.orapis.get(wikiId, None)
+
+    def publishSeries(self, seriesPageTitle:str, sourceWikiId:str, targetWikiId:str, editor:str) -> Generator:
+        """
+        Publishes the series and events belonign to the series from the sourceWiki to the targetWiki.
+        During the publish process the pageCreator and pageEditor property are set.
+
+        Args:
+            seriesPageTitle: pageTitle of the series to be published
+            sourceWikiId: source wiki to get the series from
+            targetWikiId: target wiki to publish the series to
+            editor(str): editor that initialized the publish process
+
+        Returns:
+            yields the progress
+        """
+        pass
+
+
 class OrMigrateWrapper(object):
     """
     Wrapper for ormigrate to use the fixers as Enhancement callbacks
@@ -397,7 +471,8 @@ class OrMigrateWrapper(object):
         """
         fixers={}
         wikiFileManager=WikiFileManager(sourceWikiId=wikiid, login=False)
-        manager = PageFixerManager(pageFixerClassList=[f for f in PageFixerManager.getAllFixers() if f.__name__ != 'CountryFixer'], wikiFileManager=wikiFileManager)
+        excludedFixers = ["WikiCfpIdSeriesFixer", "CountryFixer"]
+        manager = PageFixerManager(pageFixerClassList=[f for f in PageFixerManager.getAllFixers() if f.__name__ not in excludedFixers], ccID=None, wikiFileManager=wikiFileManager)
         fixersWithFixFn = {k:f for k,f in manager.pageFixers.items() if PageFixerManager.hasFixer(f)}
         for name, fixer in fixersWithFixFn.items():
             fixers[name]=partial(OrMigrateWrapper._applyFixer, fixer=fixer)
