@@ -13,7 +13,7 @@ from onlinespreadsheet.spreadsheet import SpreadSheetType, ExcelDocument, OdsDoc
 from werkzeug.exceptions import Unauthorized
 from wtforms import SelectField, SelectMultipleField, SubmitField, BooleanField
 from wtforms.widgets import Select as Select
-from orapi.orapiservice import OrApi, WikiTableEditing
+from orapi.orapiservice import OrApi, WikiTableEditing, OrApiService
 from flask import request, send_file, render_template, flash, jsonify, url_for
 import socket
 from orapi.utils import WikiUserInfo
@@ -78,12 +78,13 @@ class WebServer(AppWrap):
         def getListOfDblpSeries():
             return self.getListOfDblpSeries()
 
-    def init(self,orApi:OrApi):
+    def init(self,orapiService:OrApiService):
         """
         Args:
             orApi(OrApi): api service to handle the requested actions
         """
-        self.orapi=orApi
+        self.orapi=OrApi("wikirenderTest") #remove only for testing
+        self.orapiService = orapiService
 
     def getSeries(self, series:str=""):
         """
@@ -95,22 +96,28 @@ class WebServer(AppWrap):
         Returns:
 
         """
-        downloadForm = DownloadForm(enhancerChoices=[(name, name) for name in self.orapi.optionalEnhancers.keys()],
-                                    formatChoices=[('excel', '.xlsx (excel)'),
+        downloadForm = DownloadForm(formatChoices=[('excel', '.xlsx (excel)'),
                                                    ('csv', '.csv (multiple csv files in a .zip)'),
                                                    ('json', '.json'),
                                                    ('ods', '.ods'),
-                                                   ('html', 'html (display changes here)')])
+                                                   ('html', 'html (display changes here)')],
+                                    sourceWikiChoices=self.orapiService.getAvailableWikiChoices())
         responseFormat=None
-        chosenEnhancers=None
         downloadProgress=None
+        sourceWiki=None
         buffer=None
         if request.method == "POST":
             responseFormat=downloadForm.responseFormat
-            chosenEnhancers=downloadForm.chosenEnhancers
+            sourceWiki=downloadForm.chosenSourceWiki
         else:
             responseFormat=self.getRequestedFormat()
-        tableEditing=self.orapi.getSeriesTableEditing(series, enhancers=chosenEnhancers)
+            source = request.values.get('source', "")
+            if source in self.orapiService.wikiIds:
+                sourceWiki=source
+        if sourceWiki is None:
+            sourceWiki = self.orapiService.wikiIds[0]
+        orapi = self.orapiService.getOrApi(sourceWiki)
+        tableEditing=orapi.getSeriesTableEditing(series)
         if responseFormat is ResponseType.JSON:
             tableEditing.enhance()
             return jsonify(tableEditing.lods)
@@ -121,8 +128,8 @@ class WebServer(AppWrap):
             return send_file(buffer, attachment_filename=doc.filename, as_attachment=True, mimetype=doc.MIME_TYPE)
 
         def generator():
-            yield from self.orapi.getSeriesTableEnhanceGenerator(tableEditing)
-            seriesTable, eventsTable = self.orapi.getHtmlTables(tableEditing)
+            yield from orapi.getSeriesTableEnhanceGenerator(tableEditing)
+            seriesTable, eventsTable = orapi.getHtmlTables(tableEditing)
             if isinstance(responseFormat.value, Enum) and responseFormat.value in SpreadSheetType:
                 doc = tableEditing.toSpreadSheet(responseFormat.value, name=series)
                 buffer = doc.toBytesIO()
@@ -141,28 +148,31 @@ class WebServer(AppWrap):
         Returns:
             Generator for updating event series and events yields the updated entity record
         """
-        publisher=WikiUserInfo.fromWiki(self.orapi.wikiUrl, request.headers)
-        uploadForm=UploadForm(enhancerChoices=[(name, name) for name in self.orapi.optionalEnhancers.keys()])
-        uploadProgress=None
-        cookie=request.headers.get("Cookie")
-        if len(request.files) == 1:  #ToDo Extend for multiple file upload
-            tableEditing=self.orapi.getTableEditingFromSpreadsheet(list(request.files.values())[0], publisher)
-            self.orapi.addPageHistoryProperties(tableEditing)
-            try:
-                def generator(tableEditing:WikiTableEditing):
-                    if not uploadForm.isDryRun:
-                        updateGenerator = self.orapi.publishTableGenerator(tableEditing, userWikiSessionCookie=cookie)
-                        yield from updateGenerator
-                    else:
-                        yield "Dry Run!!!"
-                    seriesTable, eventsTable = self.orapi.getHtmlTables(tableEditing)
-                    yield DictStreamResult(str(seriesTable) + str(eventsTable))
-                uploadProgress=self.sseBluePrint.streamDictGenerator(generator(tableEditing))
-            except Unauthorized as e:
-                flash(e.description, category="error")
-            except Exception as e:
-                print(e)
-                raise e
+        uploadProgress = None
+        uploadForm=UploadForm(targetWikiChoices=self.orapiService.getAvailableWikiChoices())
+        if request.method == "POST":
+            targetWiki = uploadForm.chosenTargetWiki
+            orapi = self.orapiService.getOrApi(targetWiki)
+            publisher = WikiUserInfo.fromWiki(orapi.wikiUrl, request.headers)
+            cookie=request.headers.get("Cookie")
+            if len(request.files) == 1:  #ToDo Extend for multiple file upload
+                tableEditing=orapi.getTableEditingFromSpreadsheet(list(request.files.values())[0], publisher)
+                orapi.addPageHistoryProperties(tableEditing)
+                try:
+                    def generator(tableEditing:WikiTableEditing):
+                        if not uploadForm.isDryRun:
+                            updateGenerator = orapi.publishTableGenerator(tableEditing, userWikiSessionCookie=cookie)
+                            yield from updateGenerator
+                        else:
+                            yield "Dry Run!!!"
+                        seriesTable, eventsTable = orapi.getHtmlTables(tableEditing)
+                        yield DictStreamResult(str(seriesTable) + str(eventsTable))
+                    uploadProgress=self.sseBluePrint.streamDictGenerator(generator(tableEditing))
+                except Unauthorized as e:
+                    flash(e.description, category="error")
+                except Exception as e:
+                    print(e)
+                    raise e
         return render_template('upload.html',
                                menu=self.getMenuList(),
                                uploadForm=uploadForm,
@@ -275,16 +285,16 @@ class DownloadForm(FlaskForm):
     download event series and events in different formats and allow to select different Enhancement steps
     """
     sourceWiki = SelectField("Source wiki", default="None")
-    enhancements=SelectMultipleField("Enhancements",
-                                     widget=Select2Widget(multiple=True),
-                                     render_kw={"placeholder": "Enhancement steps to apply before downloading",
-                                                "allowClear": 'true'})
+    # enhancements=SelectMultipleField("Enhancements",
+    #                                  widget=Select2Widget(multiple=True),
+    #                                  render_kw={"placeholder": "Enhancement steps to apply before downloading",
+    #                                             "allowClear": 'true'})
     format=SelectField()
     submit=SubmitField(label="Download")
 
     def __init__(self, enhancerChoices:list=None, formatChoices:list=None, sourceWikiChoices:list=None):
         super(DownloadForm, self).__init__()
-        self.enhancements.choices=enhancerChoices
+        #self.enhancements.choices=enhancerChoices
         self.format.choices=formatChoices
         self.sourceWiki.choices=sourceWikiChoices
 
@@ -309,17 +319,17 @@ class UploadForm(FlaskForm):
     download event series and events in different formats and allow to select different Enhancement steps
     """
     targetWiki=SelectField("Target wiki", default="None")
-    enhancements=SelectMultipleField("Enhancements",
-                                     widget=Select2Widget(multiple=True),
-                                     render_kw={"placeholder": "Enhancement steps to apply before downloading",
-                                                "allowClear": 'true'})
+    # enhancements=SelectMultipleField("Enhancements",
+    #                                  widget=Select2Widget(multiple=True),
+    #                                  render_kw={"placeholder": "Enhancement steps to apply before downloading",
+    #                                             "allowClear": 'true'})
     dropzone = DropZoneField(id="files", url="/api/upload/series", uploadId="upload",configParams={'acceptedFiles': ".ods, .xlsx"})
     dryRun = BooleanField(id="Dry run", default="checked")
     upload = ButtonField()
 
     def __init__(self, enhancerChoices:list=None, targetWikiChoices:list=None):
         super().__init__()
-        self.enhancements.choices=enhancerChoices
+        #self.enhancements.choices=enhancerChoices
         self.targetWiki.choices=targetWikiChoices
 
     @property
@@ -350,13 +360,13 @@ def main(argv=None):
     home=path.expanduser("~")
     parser = web.getParser(description="openresearch api to retrieve and edit data")
     parser.add_argument('--wikiTextPath',default=f"{home}/.or/generated/orfixed", help="location of the wikiMarkup files to be used to initialize the ConferenceCorpus")  #ToDo: Update default value
-    parser.add_argument('-t', '--target', default="wikirenderTest", help="wikiId of the target wiki [default: %(default)s]")
-    parser.add_argument('--publishWikiId', default="wikirenderTest",help="wikiId of the wiki to which pages sould be published")
+    parser.add_argument('--wikiIds',nargs='*', default="wikiIds",help="wikiIds for which orapi should be provided if none provided all wikiIds will are available")
+    parser.add_argument('--requireAuthentication', action="store_true", help="Require wiki session cookie to update a wiki")
     parser.add_argument('--verbose', default=True, action="store_true", help="should relevant server actions be logged [default: %(default)s]")
     args = parser.parse_args()
     web.optionalDebug(args)
     #ToDo: Exchange OrApi with OrApi Service
-    web.init(orApi=OrApi(wikiId=args.target, authUpdates=False))
+    web.init(orapiService=OrApiService(wikiIds=args.wikiIds, authUpdates=args.requireAuthentication))
     web.run(args)
 
 if __name__ == '__main__':

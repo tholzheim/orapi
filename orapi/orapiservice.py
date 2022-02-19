@@ -146,6 +146,7 @@ class OrApi:
         tableEditing.addEnhancer(partial(self.completeProperties, restrict=True))   # ToDo: restriction of exported properties needs to be discussed
         # to apply the fixers from ormigrate we need to normalize the entity property names
         tableEditing.addEnhancer(self.normalizeEntityProperties)
+        tableEditing.addEnhancer(self.sanitizeEntityPropertyValues)
 
         if enhancers:
             for enhancer in enhancers:
@@ -337,6 +338,23 @@ class OrApi:
                     templateParamMap={v:k for k,v in templateParamMap.items()}
                 tableEditing.lods[templateName]=OrApi.updateKeys(entityRecords, templateParamMap)
 
+    def sanitizeEntityPropertyValues(self, tableEditing:WikiTableEditing):
+        """
+        Curates some entity values e.g converting float to int
+        Args:
+            tableEditing:
+
+        Returns:
+
+        """
+        worksOn = [OREvent.templateName, OREventSeries.templateName]
+        for name in worksOn:
+            entityRecords = tableEditing.lods.get(name)
+            for entityRecord in entityRecords:
+                for key, value in entityRecord.items():
+                    if isinstance(value, float) and value.is_integer():
+                        entityRecords[key]=int(value)
+
     def getHtmlTables(self, tableEditing:WikiTableEditing):
         """
         Converts the given tables into a html table
@@ -351,8 +369,10 @@ class OrApi:
         seriesLod = self.convertLodValues(lods[OrApi.SERIES_TEMPLATE_NAME], valueMap)
         eventLod = self.convertLodValues(lods[OrApi.EVENT_TEMPLATE_NAME], valueMap)
         seriesTable = LodTable(seriesLod, headers={v: v for v in LOD.getFields(seriesLod)},name="Event series")
-        eventsTable = LodTable(eventLod, headers={v: v for v in LOD.getFields(eventLod)},
-                               name="Events", isDatatable=True)
+        eventPropertyOrder=["pageTitle", "Acronym", "Ordinal", "Year", "City", "Start date", "End date", "Title", "Series", "wikidataId","wikicfpId","DblpConferenceId","TibKatId"]
+        eventFields = LOD.getFields(eventLod)
+        eventHeaders={**{v:v for v in eventPropertyOrder if v in eventFields}, **{v:v for v in eventFields if v not in eventPropertyOrder}}
+        eventsTable = LodTable(eventLod, headers=eventHeaders, name="Events", isDatatable=True)
         return seriesTable, eventsTable
 
     def propertyToLinkMap(self) -> dict:
@@ -369,7 +389,8 @@ class OrApi:
             "DblpSeries": lambda value: Link(url=f"https://dblp.org/db/conf/{value}/index.html", title=value),
             "Series": lambda value: Link(url=f"{self.wikiUrl}/index.php?title={value}",title=value),
             "TibKatId": lambda value: Link(url=f"https://www.tib.eu/en/search/id/TIBKAT:{value}", title=value),
-            "Logo": lambda value: Image(url=f"{self.wikiUrl}/index.php?title=Special:Redirect/file/File:{value}",alt=value) if value else value
+            "Logo": lambda value: Image(url=f"{self.wikiUrl}/index.php?title=Special:Redirect/file/File:{value}",alt=value) if value else value,
+            "Ordinal": lambda value: int(value) if isinstance(value, float) and value.is_integer() else value
         }
         return map
 
@@ -415,7 +436,7 @@ class OrApiService:
     Handles OrApi for multiple wikis
     """
 
-    def __init__(self, wikiIds:list, authUpdates:bool=True, debug:bool=False):
+    def __init__(self, wikiIds:list=None, authUpdates:bool=True, debug:bool=False):
         """
 
         Args:
@@ -424,9 +445,18 @@ class OrApiService:
             debug: print debug output if true
         """
         self.debug=debug
+        self.authUpdates=authUpdates
         self.orapis={}
-        for wikiId in wikiIds:
-            self.orapis[wikiId]=OrApi(wikiId=wikiId, authUpdates=authUpdates, debug=debug)
+        wikiUserIds = list(WikiUser.getWikiUsers().keys())
+        if wikiIds is None:
+            self.wikiIds = wikiUserIds
+        else:
+            self.wikiIds = []
+            for wikiId in wikiIds:
+                if wikiId in wikiUserIds:
+                    self.wikiIds.append(wikiId)
+                else:
+                    print(f"Wiki id '{wikiId}' is not known")
 
     def getOrApi(self, wikiId) -> OrApi:
         """
@@ -437,11 +467,12 @@ class OrApiService:
         Returns:
             OrApi
         """
-        return self.orapis.get(wikiId, None)
+        orapi = OrApi(wikiId=wikiId, debug=self.debug)
+        return orapi
 
     def publishSeries(self, seriesPageTitle:str, sourceWikiId:str, targetWikiId:str, editor:str) -> Generator:
         """
-        Publishes the series and events belonign to the series from the sourceWiki to the targetWiki.
+        Publishes the series and events belonging to the series from the sourceWiki to the targetWiki.
         During the publish process the pageCreator and pageEditor property are set.
 
         Args:
@@ -454,6 +485,9 @@ class OrApiService:
             yields the progress
         """
         pass
+
+    def getAvailableWikiChoices(self) -> list:
+        return [(wid, wid) for wid in self.wikiIds]
 
 
 class OrMigrateWrapper(object):
