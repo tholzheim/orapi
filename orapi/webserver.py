@@ -5,13 +5,13 @@ from io import BytesIO
 from os import path
 from fb4.app import AppWrap
 from fb4.sse_bp import SSE_BluePrint, DictStreamResult, DictStreamFileResult
-from fb4.widgets import DropZoneField, ButtonField, Menu, MenuItem, LodTable
+from fb4.widgets import DropZoneField, ButtonField, Menu, MenuItem, LodTable, Link
 from flask_wtf import FlaskForm
-from lodstorage.lod import LOD
 from markupsafe import Markup
 from onlinespreadsheet.spreadsheet import SpreadSheetType, ExcelDocument, OdsDocument
 from werkzeug.exceptions import Unauthorized
-from wtforms import SelectField, SelectMultipleField, SubmitField, BooleanField
+from wikibot.wikiclient import WikiClient
+from wtforms import SelectField, SubmitField, BooleanField, StringField
 from wtforms.widgets import Select as Select
 from orapi.orapiservice import OrApi, WikiTableEditing, OrApiService
 from flask import request, send_file, render_template, flash, jsonify, url_for
@@ -61,7 +61,7 @@ class WebServer(AppWrap):
         @self.app.route('/')
         def home():
             #return redirect(self.basedUrl(url_for('series')))
-            return render_template('home.html')
+            return render_template('home.html', menu=self.getMenuList())
 
         @self.app.route('/api/series/<series>', methods=['GET','POST'])
         @self.csrf.exempt
@@ -78,13 +78,18 @@ class WebServer(AppWrap):
         def getListOfDblpSeries():
             return self.getListOfDblpSeries()
 
-    def init(self,orapiService:OrApiService):
+        @self.app.route('/api/publish/series/<series>', methods=['GET','POST'])
+        @self.csrf.exempt
+        def publishSeries(series:str):
+            return self.publishSeries(series)
+
+    def init(self,orapiService:OrApiService, baseUrl:str=None):
         """
         Args:
             orApi(OrApi): api service to handle the requested actions
         """
-        self.orapi=OrApi("wikirenderTest") #remove only for testing
         self.orapiService = orapiService
+        self.baseUrl = baseUrl
 
     def getSeries(self, series:str=""):
         """
@@ -114,6 +119,7 @@ class WebServer(AppWrap):
             source = request.values.get('source', "")
             if source in self.orapiService.wikiIds:
                 sourceWiki=source
+                downloadForm.sourceWiki.data=source
         if sourceWiki is None:
             sourceWiki = self.orapiService.wikiIds[0]
         orapi = self.orapiService.getOrApi(sourceWiki)
@@ -152,16 +158,18 @@ class WebServer(AppWrap):
         uploadForm=UploadForm(targetWikiChoices=self.orapiService.getAvailableWikiChoices())
         if request.method == "POST":
             targetWiki = uploadForm.chosenTargetWiki
+            if not self.isAuthorized(wikiId=targetWiki):
+                return self._returnErrorMsg("You need to be logged into the wiki to publish a series", status="Error")
             orapi = self.orapiService.getOrApi(targetWiki)
             publisher = WikiUserInfo.fromWiki(orapi.wikiUrl, request.headers)
             cookie=request.headers.get("Cookie")
             if len(request.files) == 1:  #ToDo Extend for multiple file upload
                 tableEditing=orapi.getTableEditingFromSpreadsheet(list(request.files.values())[0], publisher)
-                orapi.addPageHistoryProperties(tableEditing)
+                #orapi.addPageHistoryProperties(tableEditing)
                 try:
                     def generator(tableEditing:WikiTableEditing):
                         if not uploadForm.isDryRun:
-                            updateGenerator = orapi.publishTableGenerator(tableEditing, userWikiSessionCookie=cookie)
+                            updateGenerator = orapi.uploadLodTableGenerator(tableEditing, userWikiSessionCookie=cookie)
                             yield from updateGenerator
                         else:
                             yield "Dry Run!!!"
@@ -182,15 +190,102 @@ class WebServer(AppWrap):
         """
         Returns the list of DBLPEventSeries of the requested wiki
         """
-        #ToDo: Add wiki selection
-        lod = self.orapi.getListOfDblpEventSeries()
-        lod = self.orapi.convertLodValues(lod, self.orapi.propertyToLinkMap())
-        #ToDo: Add Download, publish column with link to corresponding page
+        orapi = self.orapiService.getOrApi(wikiId="orclone")
+        lod = orapi.getListOfDblpEventSeries()
+        # add orapi links/buttons
+        for record in lod:
+            pageTitle = record.get("pageTitle")
+            download=Link(url=self.basedUrl(url_for(f"getSeries", series=pageTitle))+f"?source=or", title="Download")
+            downloadExcel = Link(url=self.basedUrl(url_for(f"getSeries", series=pageTitle)) + f"?format=excel&source=or", title="Excel")
+            upload = Link(url=self.basedUrl(url_for(f"updateSeries"))+f"?target=orclone", title="Upload")
+            publish = Link(url=self.basedUrl(url_for(f"publishSeries", series=pageTitle))+f"?source=orclone", title="Publish")
+            record["orapi"]=f"{download} ({downloadExcel}) | {upload} | {publish}"
+        lod = orapi.convertLodValues(lod, orapi.propertyToLinkMap())
+        headerOrder = ["pageTitle", "orapi", "wikidataId", "DblpSeries", "WikiCfpSeries", "homepage", "Has_Biblography"]
         return render_template('series.html',
-                               series=LodTable(lod=lod, name="List of DBLPEventSeries"),
+                               series=LodTable(lod=lod, name="List of DBLPEventSeries", isDatatable=True, headers={h:h for h in headerOrder}),
                                menu=self.getMenuList())
 
+    def publishSeries(self, series:str):
+        """
+        Publishes a series from source wiki to target wiki
+        """
+        form = PublishForm(sourceWikiChoices=self.orapiService.getAvailableWikiChoices(),
+                           targetWikiChoices=self.orapiService.getAvailableWikiChoices())
+        if form.is_submitted():
+            sourceWikiId = form.sourceWikiId.data
+            targetWikiId = form.targetWikiId.data
+            orapi = self.orapiService.getOrApi(wikiId=sourceWikiId, targetWikiId=targetWikiId)
+            publisher = form.pageEditor.data
+            if not self.isAuthorized(wikiId=sourceWikiId, wikiUserInfo=publisher):
+                return self._returnErrorMsg("You need to be logged into the wiki to publish a series", status="Error")
+            if not publisher:
+                flash("You must define a page editor to publish a series", category="warning")
+            else:
+                publishGenerator = orapi.publishSeries(seriesAcronym=series, publisher=publisher)
+                publishProgress = self.sseBluePrint.streamDictGenerator(generator=publishGenerator)
+                return render_template('publishedPages.html',
+                                       menu=self.getMenuList(),
+                                       series=series,
+                                       publishForm=form,
+                                       publishProgress=publishProgress)
 
+        sourceWikiId = request.values.get('source', None)
+        targetWikiId = request.values.get('target', None)
+        if sourceWikiId is None:
+            #return error
+            pass
+        form.sourceWikiId.data = sourceWikiId
+        orapi = self.orapiService.getOrApi(sourceWikiId)
+        publisher = WikiUserInfo.fromWiki(self.getUrlForWikiId(sourceWikiId), request.headers)
+        if not self.isAuthorized(wikiId=sourceWikiId, wikiUserInfo=publisher):
+            return self._returnErrorMsg("You need to be logged into the wiki to publish a series", status="Error")
+        elif publisher.name == "unknown":
+            flash("You must define a page editor")
+        else:
+            flash("Please ensure that the page editor is correct", category="info")
+        tableEditing = orapi.getSeriesTableEditing(series)
+        if targetWikiId is not None and targetWikiId in [k for (k,v) in form.targetWikiId.choices]:
+            form.targetWikiId.data=targetWikiId
+        def generator():
+            yield from orapi.getSeriesTableEnhanceGenerator(tableEditing)
+            seriesTable, eventsTable = orapi.getHtmlTables(tableEditing)
+            yield DictStreamResult(str(seriesTable) + str(eventsTable))
+        sourceSeriesOverviewProgress = self.sseBluePrint.streamDictGenerator(generator=generator())
+        form.pageEditor.data=publisher.name
+        return render_template('publishedPages.html',
+                               menu=self.getMenuList(),
+                               series=series,
+                               publishForm=form,
+                               seriesSourceWiki=sourceSeriesOverviewProgress)
+
+    def getUrlForWikiId(self, wikiId):
+        """
+        Returns the wiki url for given wikiId
+        Args:
+            wikiId: id of the wiki
+
+        Returns:
+
+        """
+        wikiUser = WikiClient.ofWikiId(wikiId).wikiUser
+        return wikiUser.url + wikiUser.scriptPath
+
+    def isAuthorized(self, wikiId:str, wikiUserInfo:WikiUserInfo=None):
+        """
+        Checks if the user has the necessary rights
+        Args:
+            orapi:
+
+        Returns:
+            True if the user is authorized otherwise False
+        """
+        if self.orapiService.authUpdates:
+            if wikiUserInfo is None:
+                wikiUserInfo = WikiUserInfo.fromWiki(self.getUrlForWikiId(wikiId=wikiId), request.headers)
+            return wikiUserInfo.isVerified()
+        else:
+            return True
 
     def sendFile(self, data:str, name:str,mimetype:str="text" ):
         """
@@ -208,7 +303,7 @@ class WebServer(AppWrap):
         buffer.seek(0)
         return send_file(buffer, as_attachment=True, attachment_filename=name, mimetype=mimetype)
 
-    def _returnErrorMsg(self, msg:str, status:str, returnToPage:str, url:str=None):
+    def _returnErrorMsg(self, msg:str, status:str, url:str=None):
         """
         Returns the given error message as flash message on a html page
         Args:
@@ -220,7 +315,7 @@ class WebServer(AppWrap):
         if url is None:
             url=request.referrer
         flash(msg, status)
-        return render_template('errorPage.html', url=url, title=returnToPage)
+        return render_template('errorPage.html', menu=self.getMenuList())
 
     def getRequestedFormat(self) -> ResponseType:
         """
@@ -251,8 +346,8 @@ class WebServer(AppWrap):
         '''
         menu=Menu()
         menu.addItem(MenuItem("/","Home"))
-        menu.addItem(MenuItem(url_for("updateSeries"),"Upload"))
-        menu.addItem(MenuItem(url_for("getListOfDblpSeries"),"Series"))
+        menu.addItem(MenuItem(self.basedUrl(url_for("updateSeries")),"Upload"))
+        menu.addItem(MenuItem(self.basedUrl(url_for("getListOfDblpSeries")),"Series"))
         menu.addItem(MenuItem('https://github.com/tholzheim/orapi','github'))
         menu.addItem(MenuItem('https://github.com/tholzheim/orapi', 'openresearch'))
         menu.addItem(MenuItem('https://confident.dbis.rwth-aachen.de/or/index.php?title=Main_Page', 'orclone'))
@@ -351,6 +446,21 @@ class UploadForm(FlaskForm):
     def isDryRun(self)->bool:
         return self.dryRun.data
 
+class PublishForm(FlaskForm):
+    """
+    publish a series
+    Form to select a source and target wiki for a series to be published
+    """
+    sourceWikiId = SelectField("Source wiki")
+    targetWikiId = SelectField("Target wiki")
+    pageEditor = StringField("Page Editor")
+    publish = SubmitField()
+
+    def __init__(self, sourceWikiChoices:list, targetWikiChoices:list):
+        super().__init__()
+        self.targetWikiId.choices=targetWikiChoices
+        self.sourceWikiId.choices=sourceWikiChoices
+
 DEBUG = False
 
 def main(argv=None):
@@ -366,7 +476,7 @@ def main(argv=None):
     args = parser.parse_args()
     web.optionalDebug(args)
     #ToDo: Exchange OrApi with OrApi Service
-    web.init(orapiService=OrApiService(wikiIds=args.wikiIds, authUpdates=args.requireAuthentication))
+    web.init(orapiService=OrApiService(wikiIds=args.wikiIds, authUpdates=args.requireAuthentication), baseUrl=args.baseUrl)
     web.run(args)
 
 if __name__ == '__main__':

@@ -157,7 +157,7 @@ class WikiUserInfo(object):
                 return wikiUserInfo
         except Exception as e:
             print(e)
-            return WikiUserInfo(id=-1, name="unkown")
+            return WikiUserInfo(id=-1, name="unknown")
 
     def hasName(self) -> bool:
         if self.name:

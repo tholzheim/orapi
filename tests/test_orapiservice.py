@@ -1,6 +1,8 @@
 from collections import Generator
 from onlinespreadsheet.tableediting import TableEditing
 from onlinespreadsheet.tablequery import TableQuery
+from wikifile.wikiFileManager import WikiFileManager
+
 from orapi.orapiservice import OrApi
 from tests.basetest import Basetest
 
@@ -45,3 +47,8 @@ class TestOrApi(Basetest):
         tableEditing=self.orapi.getSeriesTableEditing(self.testSeriesAcronym, enhancers)
         enhancementGenerator=self.orapi.getSeriesTableEnhanceGenerator(tableEditing)
         self.assertTrue(isinstance(enhancementGenerator, Generator))
+
+    def test_getPageFromWiki(self):
+        w = WikiFileManager("orfixed")
+        wikiFile = w.getWikiFileFromWiki("3DUI 2020")
+        page=wikiFile.getPage()

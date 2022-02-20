@@ -5,7 +5,16 @@
 {% import 'macros.html' as macros %}
 {% from 'bootstrap/table.html' import render_table %}
 {% block content %}
-<h1>Published the following Pages of the series {{ series }} from <a href="{{ sourceUrl }}/index.php?title={{ series }}">{{ source }}</a> to <a href="{{ targetUrl }}/index.php?title={{ series }}">{{ target }}</a></h1>
-    <h2>Publish Progress</h2>
-    {{ publishProgress.progressMessages(-1, completdeMsg="Publish completed")|safe }}
+    <h1>Publishing of the {{ series }} Series</h1>
+    {{ render_form(publishForm) }}
+
+    {% if seriesSourceWiki %}
+        <h1>Selected Series (Series to be published)</h1>
+        {{ seriesSourceWiki.progressWithDisplayOfResult()|safe }}
+    {% endif %}
+
+    {% if publishProgress %}
+        <h1>Publishing progress</h1>
+        {{ publishProgress.progressWithDisplayOfResult()|safe }}
+    {% endif %}
 {% endblock %}

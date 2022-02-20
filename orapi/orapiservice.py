@@ -49,7 +49,7 @@ class OrApi:
     EVENT_TEMPLATE_NAME = OREvent.templateName
     SERIES_TEMPLATE_NAME = OREventSeries.templateName
 
-    def __init__(self, wikiId:str, authUpdates:bool=True, debug:bool=False):
+    def __init__(self, wikiId:str, targetWikiId:str=None, authUpdates:bool=True, debug:bool=False):
         """
 
         Args:
@@ -57,7 +57,12 @@ class OrApi:
             authUpdates: apply updates to the wiki only if user is authenticated
             debug: print debug output if true
         """
+        self.allowedTemplateParams = {
+            OREvent.templateName:[*OREvent.getTemplateParamLookup().keys(), "pageCreator", "pageEditor"],
+            OREventSeries.templateName: [*OREventSeries.getTemplateParamLookup().keys(), "pageCreator", "pageEditor"]
+        }
         self.wikiId=wikiId
+        self.targetWikiId=targetWikiId
         self.authUpdates=authUpdates
         self.debug=debug
         self.eventTemplateProps={"pageTitle":"pageTitle", **{value:key for key, value in OREvent.getTemplateParamLookup().items()}}
@@ -200,7 +205,7 @@ class OrApi:
         tableEditing.addLoD(name=OrApi.SERIES_TEMPLATE_NAME, lod=spreadsheet.getTable(OrApi.SERIES_TEMPLATE_NAME))
         return tableEditing
 
-    def publishTableGenerator(self, tableEditing:WikiTableEditing, userWikiSessionCookie:str=None) -> Generator:
+    def uploadLodTableGenerator(self, tableEditing:WikiTableEditing, userWikiSessionCookie:str=None) -> Generator:
         """
         Uses the given table to update the wikipages corresponding to the lod records.
         Args:
@@ -217,17 +222,16 @@ class OrApi:
             if not wikiUserInfo.isVerified():
                 raise Unauthorized("To update the wikipages you need to be logged into the wiki and have the necessary rights.")
         self.normalizeEntityProperties(tableEditing, reverse=True)
+        toLink = self.propertyToLinkMap().get("pageTitle")
         wikiFileManager=WikiFileManager(sourceWikiId=self.wikiId, targetWikiId=self.wikiId)
         for entityType, entities in tableEditing.lods.items():
             if isinstance(entities, list):
                 for entity in entities:
                     self.normalizePropsForWiki(entity)
                     if isinstance(entity, dict):
-                        entity = copy.deepcopy(entity)
-                        pageTitle=entity.get('pageTitle')
-                        del entity["pageTitle"]
-                        # ToDo: Limit entity properties to existing entity properties
-                        yield f"Updating {pageTitle} ..."
+                        pageTitle = entity.get('pageTitle')
+                        entity = {key:value for key, value in entity.items() if key in self.allowedTemplateParams.get(entityType, [])}
+                        yield f"Updating {toLink(pageTitle)} ..."
                         wikiFile=wikiFileManager.getWikiFileFromWiki(pageTitle)
                         wikiFile.updateTemplate(template_name=entityType, args=entity, prettify=True, overwrite=True)
                         wikiFile.pushToWiki(f"Updated through orapi")
@@ -242,6 +246,51 @@ class OrApi:
                 if (value).is_integer():
                     entity[key]=int(value)
 
+    def publishSeries(self, seriesAcronym:str, publisher:str, ensureLocationsExits:bool=True) -> Generator:
+        """
+        Publishes the pages belonging to the given series from the source wiki to the defined target wiki
+
+        Args:
+            seriesAcronym: name of the series to be published
+
+        Returns:
+            yields progress messages of the publishing process
+        """
+        wikiFileManager = WikiFileManager(sourceWikiId=self.wikiId, targetWikiId=self.targetWikiId)
+        tableEditing = self.getSeriesTableEditing(seriesAcronym)
+        ts = wikiFileManager.wikiPush.toWiki.site.site
+        targetWikiUrl = ts["server"] + ts["scriptpath"]
+        getTargetWikPageLink = lambda pageTitle: Link(f'{targetWikiUrl}/index.php?title={pageTitle}', pageTitle)
+        locations = set()
+        for entityType, lod in tableEditing.lods.items():
+            for record in lod:
+                entityName = record.get("pageTitle")
+                yield f"Publishing {getTargetWikPageLink(entityName)} ..."
+                pageCreator = PageHistory(entityName, targetWikiUrl).getPageOwner()
+                wikiFile = wikiFileManager.getWikiFileFromWiki(entityName)
+                record = wikiFile.extractTemplate(entityType)[0]
+                for locationType in ["Country", "Region", "City"]:
+                    locations.add(record.get(locationType, None))
+                args = {
+                    "pageCreator": pageCreator,
+                    "pageEditor": publisher
+                }
+                wikiFile.updateTemplate(entityType, overwrite=True, args=args, prettify=True)
+                wikiFile.pushToWiki(f"Published changes from {self.wikiId} by {publisher}")
+                yield "✅<br>"
+        if ensureLocationsExits:
+            yield f"<br>Ensure location pages exist for publsied series:<br>"
+            for location in locations:
+                if location is None:
+                    continue
+                if wikiFileManager.wikiPush.toWiki.getPage(location).exists:
+                    yield f"Already exists: {getTargetWikPageLink(location)} ✅<br>"
+                else:
+                    yield f"Publishing: {getTargetWikPageLink(location)} ..."
+                    wikiFile = wikiFileManager.getWikiFileFromWiki(location)
+                    wikiFile.pushToWiki(f"Pushed from {self.wikiId} by {publisher}")
+                    yield  "✅<br>"
+        yield "Publishing completed"
 
     @property
     def wikiUrl(self):
@@ -458,7 +507,7 @@ class OrApiService:
                 else:
                     print(f"Wiki id '{wikiId}' is not known")
 
-    def getOrApi(self, wikiId) -> OrApi:
+    def getOrApi(self, wikiId:str, targetWikiId:str=None) -> OrApi:
         """
         Returns the OrApi corresponding to the given wikiId
         Args:
@@ -467,24 +516,8 @@ class OrApiService:
         Returns:
             OrApi
         """
-        orapi = OrApi(wikiId=wikiId, debug=self.debug)
+        orapi = OrApi(wikiId=wikiId, targetWikiId=targetWikiId, authUpdates=self.authUpdates, debug=self.debug)
         return orapi
-
-    def publishSeries(self, seriesPageTitle:str, sourceWikiId:str, targetWikiId:str, editor:str) -> Generator:
-        """
-        Publishes the series and events belonging to the series from the sourceWiki to the targetWiki.
-        During the publish process the pageCreator and pageEditor property are set.
-
-        Args:
-            seriesPageTitle: pageTitle of the series to be published
-            sourceWikiId: source wiki to get the series from
-            targetWikiId: target wiki to publish the series to
-            editor(str): editor that initialized the publish process
-
-        Returns:
-            yields the progress
-        """
-        pass
 
     def getAvailableWikiChoices(self) -> list:
         return [(wid, wid) for wid in self.wikiIds]

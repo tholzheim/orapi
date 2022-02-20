@@ -5,5 +5,16 @@
 {% import 'macros.html' as macros %}
 {% from 'bootstrap/table.html' import render_table %}
 {% block content %}
+<h1>Download</h1>
+<p> Example download route: /api/series/3DUI?source=orfixed</p>
+<p> Download a series from a selected wiki</p>
 
+<h1>Upload</h1>
+<p>In the Upload you provide spreadsheet document and select a target wiki. The entities in the wiki are than updated correspondingly to the records in the document.</p>
+
+<h1>Publish</h1>
+<p>In the Publishing process you select a series (by its pageTitle),  a source wiki and target wiki. The pages belonging to the series are than pushed from the source to the target wiki. During the pushing the Properties  pageCreator and pageEditor are set. Furthermore, missing location pages in the target wiki are also pushed from the source wiki. </p>
+<p> Example publishing route: /api/publish/3DUI?source=orfixed&target=orclone</p>
+<p> Additionally the pageEditor can be changed e.g. if the user has different usernames in the source and target wiki.</p>
+<p>The publish need to be confirmed before it is executed.</p>
 {% endblock %}
