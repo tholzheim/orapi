@@ -1,8 +1,14 @@
+import pathlib
+
 from setuptools import setup
 from collections import OrderedDict
 
+here = pathlib.Path(__file__).parent.resolve()
+requirements = (here / 'requirements.txt').read_text(encoding='utf-8').split("\n")
+
+
 setup(name='orapi',
-      version='0.0.3',
+      version='0.0.4',
       description='python api providing access to openresearch events and event series',
       long_description_content_type='text/markdown',
       url='https://github.com/tholzheim/orapi',
@@ -23,15 +29,7 @@ setup(name='orapi',
       ],
       packages=['orapi'],
       package_data={'orapi': ['resources/templates/*.jinja','resources/templates/*.html']},
-      install_requires=[
-          'pylodstorage>=0.0.69',
-          'python-dateutil',
-          'ConferenceCorpus>=0.0.26',
-          'pyFlaskBootstrap4>=0.2.19',
-          'wikirender>=0.0.33',
-          'flask-dropzone',
-          'odfpy'
-      ],
+      install_requires=requirements,
       entry_points={
          'console_scripts': [
              'orapi = orapi.webserver:main',
