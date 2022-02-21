@@ -205,11 +205,12 @@ class OrApi:
         tableEditing.addLoD(name=OrApi.SERIES_TEMPLATE_NAME, lod=spreadsheet.getTable(OrApi.SERIES_TEMPLATE_NAME))
         return tableEditing
 
-    def uploadLodTableGenerator(self, tableEditing:WikiTableEditing, userWikiSessionCookie:str=None) -> Generator:
+    def uploadLodTableGenerator(self, tableEditing:WikiTableEditing, userWikiSessionCookie:str=None, isDryRun:bool=False) -> Generator:
         """
         Uses the given table to update the wikipages corresponding to the lod records.
         Args:
             tableEditing: entity records which are used to update the wiki
+            isDryRun(bool): Only if False the pages in the wiki are updated.
 
         Returns:
             yields the progress of the update
@@ -221,6 +222,8 @@ class OrApi:
             wikiUserInfo=WikiUserInfo.fromWiki(self.wikiUrl, headers={"Cookie":userWikiSessionCookie})
             if not wikiUserInfo.isVerified():
                 raise Unauthorized("To update the wikipages you need to be logged into the wiki and have the necessary rights.")
+        if isDryRun:
+            yield "Dry Run!!!"
         self.normalizeEntityProperties(tableEditing, reverse=True)
         toLink = self.propertyToLinkMap().get("pageTitle")
         wikiFileManager=WikiFileManager(sourceWikiId=self.wikiId, targetWikiId=self.wikiId)
@@ -234,7 +237,10 @@ class OrApi:
                         yield f"Updating {toLink(pageTitle)} ..."
                         wikiFile=wikiFileManager.getWikiFileFromWiki(pageTitle)
                         wikiFile.updateTemplate(template_name=entityType, args=entity, prettify=True, overwrite=True)
-                        wikiFile.pushToWiki(f"Updated through orapi")
+                        if not isDryRun:
+                            wikiFile.pushToWiki(f"Updated through orapi")
+                        else:
+                            yield "Dryrun! (not upldated)"
                         yield "✅<br>"
 
     def normalizePropsForWiki(self, entity:dict):
@@ -246,12 +252,15 @@ class OrApi:
                 if (value).is_integer():
                     entity[key]=int(value)
 
-    def publishSeries(self, seriesAcronym:str, publisher:str, ensureLocationsExits:bool=True) -> Generator:
+    def publishSeries(self, seriesAcronym:str, publisher:str, ensureLocationsExits:bool=True, isDryRun:bool=False) -> Generator:
         """
         Publishes the pages belonging to the given series from the source wiki to the defined target wiki
 
         Args:
-            seriesAcronym: name of the series to be published
+            seriesAcronym(str): name of the series to be published
+            publisher(str): name of the publisher
+            ensureLocationsExits(bool): If True the location pages mentioned in the entity records will also be pushed to the target wiki
+            isDryRun(bool): If True the pages will not be pushed to the target wiki
 
         Returns:
             yields progress messages of the publishing process
@@ -265,7 +274,7 @@ class OrApi:
         for entityType, lod in tableEditing.lods.items():
             for record in lod:
                 entityName = record.get("pageTitle")
-                yield f"Publishing {getTargetWikPageLink(entityName)} ..."
+                yield f"Publishing: {getTargetWikPageLink(entityName)} ..."
                 pageCreator = PageHistory(entityName, targetWikiUrl).getPageOwner()
                 wikiFile = wikiFileManager.getWikiFileFromWiki(entityName)
                 record = wikiFile.extractTemplate(entityType)[0]
@@ -276,7 +285,10 @@ class OrApi:
                     "pageEditor": publisher
                 }
                 wikiFile.updateTemplate(entityType, overwrite=True, args=args, prettify=True)
-                wikiFile.pushToWiki(f"Published changes from {self.wikiId} by {publisher}")
+                if not isDryRun:
+                    wikiFile.pushToWiki(f"Published changes from {self.wikiId} by {publisher}")
+                else:
+                    yield "Dryrun! (not upldated)"
                 yield "✅<br>"
         if ensureLocationsExits:
             yield f"<br>Ensure location pages exist for publsied series:<br>"
@@ -288,7 +300,10 @@ class OrApi:
                 else:
                     yield f"Publishing: {getTargetWikPageLink(location)} ..."
                     wikiFile = wikiFileManager.getWikiFileFromWiki(location)
-                    wikiFile.pushToWiki(f"Pushed from {self.wikiId} by {publisher}")
+                    if not isDryRun:
+                        wikiFile.pushToWiki(f"Pushed from {self.wikiId} by {publisher}")
+                    else:
+                        yield "Dryrun! (not upldated)"
                     yield  "✅<br>"
         yield "Publishing completed"
 

@@ -60,8 +60,7 @@ class WebServer(AppWrap):
 
         @self.app.route('/')
         def home():
-            #return redirect(self.basedUrl(url_for('series')))
-            return render_template('home.html', menu=self.getMenuList())
+            return self.home()
 
         @self.app.route('/api/series/<series>', methods=['GET','POST'])
         @self.csrf.exempt
@@ -90,6 +89,9 @@ class WebServer(AppWrap):
         """
         self.orapiService = orapiService
         self.baseUrl = baseUrl
+
+    def home(self):
+        return render_template('home.html', menu=self.getMenuList())
 
     def getSeries(self, series:str=""):
         """
@@ -168,11 +170,8 @@ class WebServer(AppWrap):
                 #orapi.addPageHistoryProperties(tableEditing)
                 try:
                     def generator(tableEditing:WikiTableEditing):
-                        if not uploadForm.isDryRun:
-                            updateGenerator = orapi.uploadLodTableGenerator(tableEditing, userWikiSessionCookie=cookie)
-                            yield from updateGenerator
-                        else:
-                            yield "Dry Run!!!"
+                        updateGenerator = orapi.uploadLodTableGenerator(tableEditing, userWikiSessionCookie=cookie, isDryRun=uploadForm.isDryRun)
+                        yield from updateGenerator
                         seriesTable, eventsTable = orapi.getHtmlTables(tableEditing)
                         yield DictStreamResult(str(seriesTable) + str(eventsTable))
                     uploadProgress=self.sseBluePrint.streamDictGenerator(generator(tableEditing))
@@ -470,7 +469,7 @@ def main(argv=None):
     home=path.expanduser("~")
     parser = web.getParser(description="openresearch api to retrieve and edit data")
     parser.add_argument('--wikiTextPath',default=f"{home}/.or/generated/orfixed", help="location of the wikiMarkup files to be used to initialize the ConferenceCorpus")  #ToDo: Update default value
-    parser.add_argument('--wikiIds',nargs='*', default="wikiIds",help="wikiIds for which orapi should be provided if none provided all wikiIds will are available")
+    parser.add_argument('--wikiIds',nargs='*', help="wikiIds for which orapi should be provided if none provided all wikiIds will are available")
     parser.add_argument('--requireAuthentication', action="store_true", help="Require wiki session cookie to update a wiki")
     parser.add_argument('--verbose', default=True, action="store_true", help="should relevant server actions be logged [default: %(default)s]")
     args = parser.parse_args()
