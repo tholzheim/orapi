@@ -53,6 +53,8 @@ class TestWebServer(Basetest):
         """
         tests availability of list of dblp series
         """
+        if self.inCI():
+            return
         url=url_for("getListOfDblpSeries", _external=False)
         res = self.client.get(url)
         page = res.data.decode()

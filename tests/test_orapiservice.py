@@ -124,6 +124,8 @@ class TestOrApi(Basetest):
         """
         tests the PageHistory addition
         """
+        if self.inCI():
+            return
         tableEditing = WikiTableEditing(user=self.testUser)
         tableEditing.lods[OREvent.templateName] = [{"pageTitle": "3DUI 2020"}]
         self.orapi.addPageHistoryProperties(tableEditing=tableEditing)
