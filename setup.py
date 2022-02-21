@@ -8,7 +8,7 @@ requirements = (here / 'requirements.txt').read_text(encoding='utf-8').split("\n
 
 
 setup(name='orapi',
-      version='0.0.4',
+      version='0.0.5',
       description='python api providing access to openresearch events and event series',
       long_description_content_type='text/markdown',
       url='https://github.com/tholzheim/orapi',
