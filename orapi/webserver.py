@@ -215,7 +215,7 @@ class WebServer(AppWrap):
             targetWikiId = form.targetWikiId.data
             orapi = self.orapiService.getOrApi(wikiId=sourceWikiId, targetWikiId=targetWikiId)
             publisher = form.pageEditor.data
-            if not self.isAuthorized(wikiId=sourceWikiId, wikiUserInfo=publisher):
+            if not self.isAuthorized(wikiId=sourceWikiId):
                 return self._returnErrorMsg("You need to be logged into the wiki to publish a series", status="Error")
             if not publisher:
                 flash("You must define a page editor to publish a series", category="warning")
