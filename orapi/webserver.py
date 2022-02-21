@@ -164,13 +164,12 @@ class WebServer(AppWrap):
                 return self._returnErrorMsg("You need to be logged into the wiki to publish a series", status="Error")
             orapi = self.orapiService.getOrApi(targetWiki)
             publisher = WikiUserInfo.fromWiki(orapi.wikiUrl, request.headers)
-            cookie=request.headers.get("Cookie")
             if len(request.files) == 1:  #ToDo Extend for multiple file upload
                 tableEditing=orapi.getTableEditingFromSpreadsheet(list(request.files.values())[0], publisher)
                 #orapi.addPageHistoryProperties(tableEditing)
                 try:
                     def generator(tableEditing:WikiTableEditing):
-                        updateGenerator = orapi.uploadLodTableGenerator(tableEditing, userWikiSessionCookie=cookie, isDryRun=uploadForm.isDryRun)
+                        updateGenerator = orapi.uploadLodTableGenerator(tableEditing, headers=request.headers, isDryRun=uploadForm.isDryRun)
                         yield from updateGenerator
                         seriesTable, eventsTable = orapi.getHtmlTables(tableEditing)
                         yield DictStreamResult(str(seriesTable) + str(eventsTable))

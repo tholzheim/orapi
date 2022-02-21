@@ -205,7 +205,7 @@ class OrApi:
         tableEditing.addLoD(name=OrApi.SERIES_TEMPLATE_NAME, lod=spreadsheet.getTable(OrApi.SERIES_TEMPLATE_NAME))
         return tableEditing
 
-    def uploadLodTableGenerator(self, tableEditing:WikiTableEditing, userWikiSessionCookie:str=None, isDryRun:bool=False) -> Generator:
+    def uploadLodTableGenerator(self, tableEditing:WikiTableEditing, headers=None, isDryRun:bool=False) -> Generator:
         """
         Uses the given table to update the wikipages corresponding to the lod records.
         Args:
@@ -219,7 +219,7 @@ class OrApi:
         Unauthorized if the user is not logged into the wiki or does not have the required rights to edit pages
         """
         if self.authUpdates:
-            wikiUserInfo=WikiUserInfo.fromWiki(self.wikiUrl, headers={"Cookie":userWikiSessionCookie})
+            wikiUserInfo=WikiUserInfo.fromWiki(self.wikiUrl, headers=headers)
             if not wikiUserInfo.isVerified():
                 raise Unauthorized("To update the wikipages you need to be logged into the wiki and have the necessary rights.")
         if isDryRun:
