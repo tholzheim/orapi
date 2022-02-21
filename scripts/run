@@ -42,9 +42,8 @@ usage() {
   echo "  -d: allow remote debugging with the given debugServer"
   echo "  -dp: allow remote debugging with the given debugPath mapping from remotePath to localPath"
   echo "  -s: start as server only"
-  echo " --wikiTextPath: location of the wikiMarkup files to be used to initialize the ConferenceCorpus"
-  echo " -t: wikiId of the target wiki"
-  echo " --publishWikiId wiki to publish the pages to"
+  echo " --wikiIds: wikiIds for which orapi should be provided if none provided all wikiIds will are available"
+  echo " --requireAuthentication: uploading and publishing require to be logged in to the wiki"
 }
 export PYTHONPATH=""
 
@@ -103,9 +102,8 @@ startServer() {
   local l_debugPort="$3"
   local l_remotePath="$4"
   local l_localPath="$5"
-  local l_wikiTextPath="$6"
-  local l_targetWikiUser="$7"
-  local l_publishWikiId="$8"
+  local l_wikiIds="$6"
+  local l_requireAuthentication="$7"
   color_msg $blue "starting server only"
   if [ ! -d $l_logdir ]
   then
@@ -128,17 +126,13 @@ startServer() {
   then 
     poptions="$poptions --baseUrl $l_baseUrl"
   fi
-  if [ "$l_wikiTextPath" != "" ]
+  if [ "$l_wikiIds" != "" ]
   then
-    poptions="$poptions --wikiTextPath $l_wikiTextPath"
+    poptions="$poptions --wikiIds $l_wikiIds"
   fi
-  if [ "$l_targetWikiUser" != "" ]
+  if [ "$l_requireAuthentication" != "" ]
   then
-    poptions="$poptions --target $l_targetWikiUser"
-  fi
-  if [ "$l_publishWikiId" != "" ]
-  then
-    poptions="$poptions --publishWikiId $l_publishWikiId"
+    poptions="$poptions --requireAuthentication "
   fi
   echo "setting python options to $poptions"
   nohup python3 $pyapp $poptions > $l_logdir/$l_logfile 2>&1 &
@@ -179,29 +173,23 @@ do
       debugServer="$1"
       shift
       ;;
-    --wikiTextPath)
-      if [ $# -lt 1 ]
+    --wikiIds)
+      if [ $# -gt 0 ]
       then
-        usage
+        while [[  "$1" != "-"* ]]
+        do
+          wikiIds="$wikiIds $1"
+          shift
+        done
       fi
-      wikiTextPath="$1"
-      shift
+
       ;;
-    -t|--target)
-      if [ $# -lt 1 ]
+    --requireAuthentication)
+      if [ $# -lt 1  ]
       then
         usage
       fi
-      targetWikiUser="$1"
-      shift
-      ;;
-    --publishWikiId)
-      if [ $# -lt 1 ]
-      then
-        usage
-      fi
-      publishWikiId="$1"
-      shift
+      requireAuthentication=true
       ;;
     -dp|--debugPath)
       if [ $# -lt 2 ] 
@@ -221,7 +209,7 @@ do
       shift
       ;;
     -s)
-      startServer "$baseUrl" "$debugServer" "$debugPort" "$remotePath" "$localPath" "$wikiTextPath" "$targetWikiUser" "$publishWikiId"
+      startServer "$baseUrl" "$debugServer" "$debugPort" "$remotePath" "$localPath" "$wikiIds" "$requireAuthentication"
       exit 0
       ;;
     *)
