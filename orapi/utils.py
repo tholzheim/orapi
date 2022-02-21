@@ -1,3 +1,4 @@
+import datetime
 import json
 from typing import List
 
@@ -116,6 +117,19 @@ class WikiUserInfo(object):
         self.rights = rights if rights else []
         self.registrationdate = registrationdate
         self.acceptlang = acceptlang
+
+    @staticmethod
+    def getSamples():
+        samples = [
+            {
+                "id": 1,
+                "name": "TestUser",
+                "rights": ['createpage', 'edit'],
+                "registrationdate": datetime.datetime(year=2020, month=1, day=1),
+                "acceptlang": ["en", "de"]
+            }
+        ]
+        return samples
 
     def isVerified(self) -> bool:
         """
