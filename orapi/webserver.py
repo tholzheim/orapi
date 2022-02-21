@@ -344,7 +344,7 @@ class WebServer(AppWrap):
         set up the menu for this application
         '''
         menu=Menu()
-        menu.addItem(MenuItem("/","Home"))
+        menu.addItem(MenuItem(self.basedUrl(url_for("home")),"Home"))
         menu.addItem(MenuItem(self.basedUrl(url_for("updateSeries")),"Upload"))
         menu.addItem(MenuItem(self.basedUrl(url_for("getListOfDblpSeries")),"Series"))
         menu.addItem(MenuItem('https://github.com/tholzheim/orapi','github'))
