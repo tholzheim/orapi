@@ -500,7 +500,7 @@ class OrApiService:
     Handles OrApi for multiple wikis
     """
 
-    def __init__(self, wikiIds:list=None, authUpdates:bool=True, debug:bool=False):
+    def __init__(self, wikiIds:list=None, authUpdates:bool=True, defaultSourceWiki:str="orclone", debug:bool=False):
         """
 
         Args:
@@ -509,6 +509,7 @@ class OrApiService:
             debug: print debug output if true
         """
         self.debug=debug
+        self.defaultSourceWiki=defaultSourceWiki
         self.authUpdates=authUpdates
         self.orapis={}
         wikiUserIds = list(WikiUser.getWikiUsers().keys())

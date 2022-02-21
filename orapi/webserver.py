@@ -189,7 +189,7 @@ class WebServer(AppWrap):
         """
         Returns the list of DBLPEventSeries of the requested wiki
         """
-        orapi = self.orapiService.getOrApi(wikiId="orclone")
+        orapi = self.orapiService.getOrApi(wikiId=self.orapiService.defaultSourceWiki)
         lod = orapi.getListOfDblpEventSeries()
         # add orapi links/buttons
         for record in lod:

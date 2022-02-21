@@ -17,7 +17,7 @@ class TestWebServer(Basetest):
     def getApp(wikiIds:List[str], auth:bool=False):
         warnings.simplefilter("ignore", ResourceWarning)
         ws=WebServer()
-        orapiService = OrApiService(wikiIds=wikiIds, authUpdates=auth)
+        orapiService = OrApiService(wikiIds=wikiIds, defaultSourceWiki=wikiIds[0], authUpdates=auth)
         ws.init(orapiService)
         app=ws.app
         app.config['TESTING'] = True
