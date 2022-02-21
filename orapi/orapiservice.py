@@ -342,7 +342,7 @@ class OrApi:
         """
         extractedLods={}
         wikiFiles={}
-        wikiFileManager=WikiFileManager(sourceWikiId=self.wikiId)
+        wikiFileManager=WikiFileManager(sourceWikiId=self.wikiId, login=False)
         for name, lods in tableEditing.lods.items():
             extractedEntites=[]
             for lod in lods:

@@ -72,6 +72,8 @@ class TestOrApi(Basetest):
         """
         tests the upload of an series (as dryRun without updating the actual wiki)
         """
+        if self.inCI():
+            return
         tableEditing = WikiTableEditing(user=self.testUser)
         tableEditing.lods[OREvent.templateName] = [{"pageTitle":"3DUI 2020", "ordinal":27}]
         generator = self.orapi.uploadLodTableGenerator(tableEditing=tableEditing, isDryRun=True)
@@ -102,6 +104,8 @@ class TestOrApi(Basetest):
         """
         tests publishing of a series
         """
+        if self.inCI():
+            return
         generator = self.orapi.publishSeries(seriesAcronym=self.testSeriesAcronym,
                                              publisher=self.testUser.name,
                                              ensureLocationsExits=True,
