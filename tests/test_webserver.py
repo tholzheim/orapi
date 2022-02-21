@@ -14,11 +14,11 @@ class TestWebServer(Basetest):
     """Test the WebServers RESTful interface"""
     
     @staticmethod
-    def getApp(wikiIds:List[str], auth:bool=False):
+    def getApp(wikiIds:List[str], auth:bool=False, baseUrl:str=None):
         warnings.simplefilter("ignore", ResourceWarning)
         ws=WebServer()
         orapiService = OrApiService(wikiIds=wikiIds, defaultSourceWiki=wikiIds[0], authUpdates=auth)
-        ws.init(orapiService)
+        ws.init(orapiService, baseUrl=baseUrl)
         app=ws.app
         app.config['TESTING'] = True
         app.config['WTF_CSRF_ENABLED'] = False
@@ -100,3 +100,8 @@ class TestWebServer(Basetest):
             res = client.get(url)
             self.assertEqual(res.status_code, 200)  # Only the upload is protected not viewing the form
             self.assertIn(" You need to be logged into the wiki to publish a series", res.data.decode())
+
+    def test_basedUrl(self):
+        baseUrl="/orfixed"
+        ws, app, client = TestWebServer.getApp(self.testWikiIds, auth=True, baseUrl=baseUrl)
+        self.assertEqual(ws.sseBluePrint.baseUrl, baseUrl)

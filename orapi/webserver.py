@@ -56,7 +56,7 @@ class WebServer(AppWrap):
         self.app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///:memory:'
         self.app.app_context().push()
         self.authenticate=False
-        self.sseBluePrint = SSE_BluePrint(self.app, 'sse')
+        self.sseBluePrint = SSE_BluePrint(self.app, 'sse', appWrap=self)
 
         @self.app.route('/')
         def home():
@@ -470,6 +470,7 @@ def main(argv=None):
     parser = web.getParser(description="openresearch api to retrieve and edit data")
     parser.add_argument('--wikiTextPath',default=f"{home}/.or/generated/orfixed", help="location of the wikiMarkup files to be used to initialize the ConferenceCorpus")  #ToDo: Update default value
     parser.add_argument('--wikiIds',nargs='*', help="wikiIds for which orapi should be provided if none provided all wikiIds will are available")
+    parser.add_argument('--host', default=None, help="host (server name)")
     parser.add_argument('--requireAuthentication', action="store_true", help="Require wiki session cookie to update a wiki")
     parser.add_argument('--verbose', default=True, action="store_true", help="should relevant server actions be logged [default: %(default)s]")
     args = parser.parse_args()
