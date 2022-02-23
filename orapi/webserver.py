@@ -168,12 +168,13 @@ class WebServer(AppWrap):
                 tableEditing=orapi.getTableEditingFromSpreadsheet(list(request.files.values())[0], publisher)
                 #orapi.addPageHistoryProperties(tableEditing)
                 try:
-                    def generator(tableEditing:WikiTableEditing):
-                        updateGenerator = orapi.uploadLodTableGenerator(tableEditing, headers=request.headers, isDryRun=uploadForm.isDryRun)
+
+                    def generator(tableEditing:WikiTableEditing, headers):
+                        updateGenerator = orapi.uploadLodTableGenerator(tableEditing, headers=headers, isDryRun=uploadForm.isDryRun)
                         yield from updateGenerator
                         seriesTable, eventsTable = orapi.getHtmlTables(tableEditing)
                         yield DictStreamResult(str(seriesTable) + str(eventsTable))
-                    uploadProgress=self.sseBluePrint.streamDictGenerator(generator(tableEditing))
+                    uploadProgress=self.sseBluePrint.streamDictGenerator(generator(tableEditing, request.headers))
                 except Unauthorized as e:
                     flash(e.description, category="error")
                 except Exception as e:
