@@ -1,5 +1,5 @@
 import copy
-from collections import Generator
+from collections.abc import Generator
 from datetime import datetime
 from functools import partial
 from typing import cast
