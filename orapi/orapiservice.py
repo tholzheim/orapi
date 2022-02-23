@@ -240,7 +240,7 @@ class OrApi:
                         if not isDryRun:
                             wikiFile.pushToWiki(f"Updated through orapi")
                         else:
-                            yield "Dryrun! (not upldated)"
+                            yield "Dryrun! (not updated)"
                         yield "✅<br>"
 
     def normalizePropsForWiki(self, entity:dict):
