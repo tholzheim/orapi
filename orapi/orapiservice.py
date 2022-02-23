@@ -288,7 +288,7 @@ class OrApi:
                 if not isDryRun:
                     wikiFile.pushToWiki(f"Published changes from {self.wikiId} by {publisher}")
                 else:
-                    yield "Dryrun! (not upldated)"
+                    yield "Dryrun! (not updated)"
                 yield "✅<br>"
         if ensureLocationsExits:
             yield f"<br>Ensure location pages exist for publsied series:<br>"
@@ -303,7 +303,7 @@ class OrApi:
                     if not isDryRun:
                         wikiFile.pushToWiki(f"Pushed from {self.wikiId} by {publisher}")
                     else:
-                        yield "Dryrun! (not upldated)"
+                        yield "Dryrun! (not updated)"
                     yield  "✅<br>"
         yield "Publishing completed"
 
