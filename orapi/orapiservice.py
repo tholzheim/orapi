@@ -278,7 +278,7 @@ class OrApi:
                 pageCreator = PageHistory(entityName, targetWikiUrl).getPageOwner()
                 wikiFile = wikiFileManager.getWikiFileFromWiki(entityName)
                 record = wikiFile.extractTemplate(entityType)[0]
-                for locationType in ["Country", "Region", "City"]:
+                for locationType in ["Country", "Region", "State", "City"]:
                     locations.add(record.get(locationType, None))
                 args = {
                     "pageCreator": pageCreator,
