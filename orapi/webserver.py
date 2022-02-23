@@ -157,7 +157,7 @@ class WebServer(AppWrap):
             Generator for updating event series and events yields the updated entity record
         """
         uploadProgress = None
-        uploadForm=UploadForm(targetWikiChoices=self.orapiService.getAvailableWikiChoices())
+        uploadForm=UploadForm(targetWikiChoices=self.orapiService.getAvailableWikiChoices(), baseUrl=self.baseUrl)
         if request.method == "POST":
             targetWiki = uploadForm.chosenTargetWiki
             if not self.isAuthorized(wikiId=targetWiki):
@@ -421,10 +421,13 @@ class UploadForm(FlaskForm):
     dryRun = BooleanField(id="Dry run", default="checked")
     upload = ButtonField()
 
-    def __init__(self, enhancerChoices:list=None, targetWikiChoices:list=None):
+    def __init__(self, enhancerChoices:list=None, targetWikiChoices:list=None, baseUrl:str=None):
         super().__init__()
         #self.enhancements.choices=enhancerChoices
         self.targetWiki.choices=targetWikiChoices
+        if baseUrl:
+            self.dropzone.url=f"{baseUrl}/{self.dropzone.url}"
+            self.dropzone.updateConfigParams(url=self.dropzone.url)
 
     @property
     def responseFormat(self)->ResponseType:
