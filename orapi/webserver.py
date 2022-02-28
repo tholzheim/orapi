@@ -13,6 +13,8 @@ from werkzeug.exceptions import Unauthorized
 from wikibot.wikiclient import WikiClient
 from wtforms import SelectField, SubmitField, BooleanField, StringField
 from wtforms.widgets import Select as Select
+
+import orapi
 from orapi.orapiservice import OrApi, WikiTableEditing, OrApiService
 from flask import request, send_file, render_template, flash, jsonify, url_for
 import socket
@@ -91,7 +93,7 @@ class WebServer(AppWrap):
         self.baseUrl = baseUrl
 
     def home(self):
-        return render_template('home.html', menu=self.getMenuList())
+        return self.renderTemplate('home.html')
 
     def getSeries(self, series:str=""):
         """
@@ -145,8 +147,7 @@ class WebServer(AppWrap):
             else:
                 yield DictStreamResult(str(seriesTable) + str(eventsTable))
         downloadProgress = self.sseBluePrint.streamDictGenerator(generator=generator())
-        return render_template('seriesAndEvents.html',
-                               menu=self.getMenuList(),
+        return self.renderTemplate('seriesAndEvents.html',
                                downloadForm=downloadForm,
                                progress=downloadProgress)
 
@@ -180,8 +181,7 @@ class WebServer(AppWrap):
                 except Exception as e:
                     print(e)
                     raise e
-        return render_template('upload.html',
-                               menu=self.getMenuList(),
+        return self.renderTemplate('upload.html',
                                uploadForm=uploadForm,
                                progress=uploadProgress)
 
@@ -201,9 +201,8 @@ class WebServer(AppWrap):
             record["orapi"]=f"{download} ({downloadExcel}) | {upload} | {publish}"
         lod = orapi.convertLodValues(lod, orapi.propertyToLinkMap())
         headerOrder = ["pageTitle", "orapi", "wikidataId", "DblpSeries", "WikiCfpSeries", "homepage", "Has_Biblography"]
-        return render_template('series.html',
-                               series=LodTable(lod=lod, name="List of DBLPEventSeries", isDatatable=True, headers={h:h for h in headerOrder}),
-                               menu=self.getMenuList())
+        return self.renderTemplate('series.html',
+                               series=LodTable(lod=lod, name="List of DBLPEventSeries", isDatatable=True, headers={h:h for h in headerOrder}))
 
     def publishSeries(self, series:str):
         """
@@ -223,8 +222,7 @@ class WebServer(AppWrap):
             else:
                 publishGenerator = orapi.publishSeries(seriesAcronym=series, publisher=publisher)
                 publishProgress = self.sseBluePrint.streamDictGenerator(generator=publishGenerator)
-                return render_template('publishedPages.html',
-                                       menu=self.getMenuList(),
+                return self.renderTemplate('publishedPages.html',
                                        series=series,
                                        publishForm=form,
                                        publishProgress=publishProgress)
@@ -252,8 +250,7 @@ class WebServer(AppWrap):
             yield DictStreamResult(str(seriesTable) + str(eventsTable))
         sourceSeriesOverviewProgress = self.sseBluePrint.streamDictGenerator(generator=generator())
         form.pageEditor.data=publisher.name
-        return render_template('publishedPages.html',
-                               menu=self.getMenuList(),
+        return self.renderTemplate('publishedPages.html',
                                series=series,
                                publishForm=form,
                                seriesSourceWiki=sourceSeriesOverviewProgress)
@@ -314,7 +311,7 @@ class WebServer(AppWrap):
         if url is None:
             url=request.referrer
         flash(msg, status)
-        return render_template('errorPage.html', menu=self.getMenuList())
+        return self.renderTemplate('errorPage.html')
 
     def getRequestedFormat(self) -> ResponseType:
         """
@@ -352,6 +349,18 @@ class WebServer(AppWrap):
         menu.addItem(MenuItem('https://confident.dbis.rwth-aachen.de/or/index.php?title=Main_Page', 'orclone'))
         menu.addItem(MenuItem('https://confident.dbis.rwth-aachen.de/orfixed/index.php?title=Main_Page', 'orfixed'))
         return menu
+
+    def renderTemplate(self, template:str, **kwargs):
+        """
+        renders the given template with the given args and adds the menu and version  information
+        Args:
+            template(str): name of the template to be rendered
+            **kwargs: template arguments
+
+        Returns:
+
+        """
+        return render_template(template, menu=self.getMenuList(), version=orapi.VERSION,**kwargs)
 
 
 class Select2Widget(Select):

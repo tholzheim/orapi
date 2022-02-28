@@ -22,6 +22,12 @@
         {% block content %}{% endblock %}
     </main>
 
+    <footer class="text-center">
+        {% block footer %}
+            <small> &copy; 2021–<script>document.write(new Date().getFullYear())</script> <a href="https://github.com/tholzheim/orapi" title="orapi">{% if version %}orapi v{{ version }}{% else %}orapi{%endif %}</a>
+            </small>
+        {% endblock %}
+    </footer>
 
 </body>
 </html>
