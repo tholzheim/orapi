@@ -1,9 +1,11 @@
 import copy
+import json
 from collections.abc import Generator
 from datetime import datetime
 from functools import partial
 from typing import cast
 
+import requests
 from corpus.datasources.openresearch import OREvent, OREventSeries
 from fb4.widgets import Link, Image, LodTable
 from lodstorage.jsonable import JSONAble
@@ -223,7 +225,7 @@ class OrApi:
             if not wikiUserInfo.isVerified():
                 raise Unauthorized("To update the wikipages you need to be logged into the wiki and have the necessary rights.")
         if isDryRun:
-            yield "Dry Run!!!"
+            yield "Dry Run!!!<br>"
         self.normalizeEntityProperties(tableEditing, reverse=True)
         toLink = self.propertyToLinkMap().get("pageTitle")
         wikiFileManager=WikiFileManager(sourceWikiId=self.wikiId, targetWikiId=self.wikiId)
@@ -242,6 +244,34 @@ class OrApi:
                         else:
                             yield "Dryrun! (not updated)"
                         yield "✅<br>"
+
+    def validate(self, tableEditing:WikiTableEditing, validationServices:dict):
+        """
+        Args:
+            tableEditing:
+
+        Returns:
+
+        """
+        self.normalizeEntityProperties(tableEditing)
+        validationResult = {}
+        isValid = True
+        for validationService, url in validationServices.items():
+            res = requests.post(url, json=json.dumps(tableEditing.lods))
+            lods = res.json()
+            for entityType, entityRecords in lods.items():
+                if not entityRecords:
+                    continue
+                for entityName, evr in entityRecords.items():
+                    if not entityRecords:
+                        continue
+                    if entityType not in validationResult:
+                        validationResult[entityType]={}
+                    if entityName not in validationResult[entityType]:
+                        validationResult[entityType][entityName]={}
+                    validationResult[entityType][entityName][validationService]=evr
+                    isValid = isValid and evr.get("result", False)
+        return isValid, validationResult
 
     def normalizePropsForWiki(self, entity:dict):
         for key, value in entity.items():
@@ -381,7 +411,8 @@ class OrApi:
                 if restrict:
                     tableEditing.lods[templateName]=LOD.filterFields(entityRecords, templateParams, reverse=True)
 
-    def normalizeEntityProperties(self, tableEditing:WikiTableEditing, reverse:bool=False):
+    @staticmethod
+    def normalizeEntityProperties(tableEditing:WikiTableEditing, reverse:bool=False):
         """
         Normalizes the entiryRecord property names
         Args:
@@ -439,6 +470,36 @@ class OrApi:
         eventsTable = LodTable(eventLod, headers=eventHeaders, name="Events", isDatatable=True)
         return seriesTable, eventsTable
 
+    def getValidationTable(self, validationResult:dict):
+        """
+        Converts given validation result to html table
+        Args:
+            validationResult: validation result
+
+        Returns:
+
+        """
+        tables = []
+        for entityType, records in validationResult.items():
+            entityValidations = []
+            for entityName, validation in records.items():
+                entityValidation = {"pageTitle":entityName}
+                for valName, valRes in validation.items():
+                    isValid = valRes.get("result")
+                    errors = ','.join(valRes.get("errors"))
+                    if isValid:
+                        entityValidation[valName] = "✅"
+                    else:
+                        entityValidation[valName] = f"<div title='{errors}'>❗</div>"
+                entityValidations.append(entityValidation)
+            headers = {"pageTitle":"pageTitle", **{k:k for k in LOD.getFields(entityValidations)}}
+            table = LodTable(entityValidations, headers=headers, name=entityType, isDatatable=True)
+            tables.append(table)
+        return " ".join([str(table) for table in tables])
+
+
+
+
     def propertyToLinkMap(self) -> dict:
         """
         Returns a mapping to convert a property to the corresponding link
@@ -454,7 +515,12 @@ class OrApi:
             "Series": lambda value: Link(url=f"{self.wikiUrl}/index.php?title={value}",title=value),
             "TibKatId": lambda value: Link(url=f"https://www.tib.eu/en/search/id/TIBKAT:{value}", title=value),
             "Logo": lambda value: Image(url=f"{self.wikiUrl}/index.php?title=Special:Redirect/file/File:{value}",alt=value) if value else value,
-            "Ordinal": lambda value: int(value) if isinstance(value, float) and value.is_integer() else value
+            "Ordinal": lambda value: int(value) if isinstance(value, float) and value.is_integer() else value,
+            "City": lambda value: Link(url=f"{self.wikiUrl}/index.php?title={value}", title=value),
+            "State": lambda value: Link(url=f"{self.wikiUrl}/index.php?title={value}", title=value),
+            "Country": lambda value: Link(url=f"{self.wikiUrl}/index.php?title={value}", title=value),
+            "pageEditor": lambda value: Link(url=f"{self.wikiUrl}/index.php?title=User:{value}", title=value),
+            "pageCreator": lambda value: Link(url=f"{self.wikiUrl}/index.php?title=User:{value}", title=value),
         }
         return map
 

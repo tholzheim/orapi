@@ -20,6 +20,8 @@ XlsxWriter
 openpyxl
 # https://github.com/WolfgangFahl/pyOnlineSpreadSheetEditing
 pyOnlineSpreadSheetEditing>=0.0.6
+# https://pypi.org/project/validators/
+validators>=0.18.2
 
 OpenResearchMigration>=0.0.30
 

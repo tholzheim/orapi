@@ -147,3 +147,10 @@ class TestOrApi(Basetest):
         for field in expectedFields:
             self.assertIn(field, actualFields)
 
+    def test_getValidationTable(self):
+        """
+        tests converting validation result to html table
+        """
+        validationResult = {'Event series': {}, 'Event': {'3DUI 2010': {"ordinal validation":{'result': True, 'errors': []}}, '3DUI 2016': {"ordinal validation":{'result': None, 'errors': ['Ordinal missing']}}}}
+        tables = self.orapi.getValidationTable(validationResult)
+        print(tables)

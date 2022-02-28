@@ -1,8 +1,12 @@
+import json
 import os
 import sys
 from enum import Enum, auto
 from io import BytesIO
 from os import path
+from time import sleep
+
+import requests
 from fb4.app import AppWrap
 from fb4.sse_bp import SSE_BluePrint, DictStreamResult, DictStreamFileResult
 from fb4.widgets import DropZoneField, ButtonField, Menu, MenuItem, LodTable, Link
@@ -19,6 +23,7 @@ from orapi.orapiservice import OrApi, WikiTableEditing, OrApiService
 from flask import request, send_file, render_template, flash, jsonify, url_for
 import socket
 from orapi.utils import WikiUserInfo
+from orapi.validationService import ValidationBlueprint
 
 
 class ResponseType(Enum):
@@ -59,6 +64,7 @@ class WebServer(AppWrap):
         self.app.app_context().push()
         self.authenticate=False
         self.sseBluePrint = SSE_BluePrint(self.app, 'sse', appWrap=self)
+        self.validationService = ValidationBlueprint(self.app, "validation", appWrap=self)
 
         @self.app.route('/')
         def home():
@@ -167,15 +173,30 @@ class WebServer(AppWrap):
             publisher = WikiUserInfo.fromWiki(orapi.wikiUrl, request.headers)
             if len(request.files) == 1:  #ToDo Extend for multiple file upload
                 tableEditing=orapi.getTableEditingFromSpreadsheet(list(request.files.values())[0], publisher)
-                #orapi.addPageHistoryProperties(tableEditing)
                 try:
-
-                    def generator(tableEditing:WikiTableEditing, headers):
+                    validationServices = {
+                        "homepage": self.basedUrl(url_for('validation.validateHomepage')),
+                        "ordinal": self.basedUrl(url_for('validation.validateOrdinalFormat')),
+                    }
+                    def generator(tableEditing:WikiTableEditing, headers, validationServices):
+                        # validate
+                        sleep(0.05) #
+                        yield "Starting validation..."
+                        isValid, validationResult = orapi.validate(tableEditing, validationServices)
+                        if not isValid:
+                            validationTables = orapi.getValidationTable(validationResult)
+                            yield "<br>Input invalid → see tables below"
+                            yield DictStreamResult(str(validationTables))
+                            return
+                        else:
+                            yield "→ valid ✅<br>"
+                        if uploadForm.addPageEditorCreator.data:
+                            orapi.addPageHistoryProperties(tableEditing)
                         updateGenerator = orapi.uploadLodTableGenerator(tableEditing, headers=headers, isDryRun=uploadForm.isDryRun)
                         yield from updateGenerator
                         seriesTable, eventsTable = orapi.getHtmlTables(tableEditing)
                         yield DictStreamResult(str(seriesTable) + str(eventsTable))
-                    uploadProgress=self.sseBluePrint.streamDictGenerator(generator(tableEditing, request.headers))
+                    uploadProgress=self.sseBluePrint.streamDictGenerator(generator(tableEditing, request.headers, validationServices))
                 except Unauthorized as e:
                     flash(e.description, category="error")
                 except Exception as e:
@@ -427,6 +448,7 @@ class UploadForm(FlaskForm):
     #                                  render_kw={"placeholder": "Enhancement steps to apply before downloading",
     #                                             "allowClear": 'true'})
     dropzone = DropZoneField(id="files", url="/api/upload/series", uploadId="upload",configParams={'acceptedFiles': ".ods, .xlsx"})
+    addPageEditorCreator = BooleanField("Add pageEditor & pageCreator", default="checked")
     dryRun = BooleanField(id="Dry run", default="checked")
     upload = ButtonField()
 
