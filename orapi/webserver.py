@@ -174,10 +174,7 @@ class WebServer(AppWrap):
             if len(request.files) == 1:  #ToDo Extend for multiple file upload
                 tableEditing=orapi.getTableEditingFromSpreadsheet(list(request.files.values())[0], publisher)
                 try:
-                    validationServices = {
-                        "homepage": self.basedUrl(url_for('validation.validateHomepage')),
-                        "ordinal": self.basedUrl(url_for('validation.validateOrdinalFormat')),
-                    }
+                    validationServices = self.getValidationServices()
                     def generator(tableEditing:WikiTableEditing, headers, validate:bool=False):
                         if validate:
                             # validate
@@ -206,6 +203,27 @@ class WebServer(AppWrap):
         return self.renderTemplate('upload.html',
                                uploadForm=uploadForm,
                                progress=uploadProgress)
+
+    def getValidationServices(self):
+        """
+
+        Returns:
+            dict of validation services and their names
+        """
+        def hostWorkaround(url):
+            if self.port == 80:
+                baseUrl = f"http://{self.host}"
+            else:
+                baseUrl = f"http://{self.host}:{self.port}"
+            if self.baseUrl:
+                return f"{baseUrl}/{self.baseUrl}/{url}"
+            else:
+                return f"{baseUrl}/{url}"
+        validationServices = {
+            "homepage": hostWorkaround(url_for('validation.validateHomepage')),
+            "ordinal": hostWorkaround(url_for('validation.validateOrdinalFormat')),
+        }
+        return validationServices
 
     def getListOfDblpSeries(self):
         """
