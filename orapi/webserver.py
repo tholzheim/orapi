@@ -215,10 +215,7 @@ class WebServer(AppWrap):
                 baseUrl = f"http://{self.host}"
             else:
                 baseUrl = f"http://{self.host}:{self.port}"
-            if self.baseUrl:
-                return f"{baseUrl}{self.baseUrl}{url}"
-            else:
-                return f"{baseUrl}/{url}"
+            return f"{baseUrl}/{url}"
         validationServices = {
             "homepage": hostWorkaround(url_for('validation.validateHomepage')),
             "ordinal": hostWorkaround(url_for('validation.validateOrdinalFormat')),
