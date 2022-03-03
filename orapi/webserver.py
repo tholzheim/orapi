@@ -216,7 +216,7 @@ class WebServer(AppWrap):
             else:
                 baseUrl = f"http://{self.host}:{self.port}"
             if self.baseUrl:
-                return f"{baseUrl}/{self.baseUrl}/{url}"
+                return f"{baseUrl}{self.baseUrl}{url}"
             else:
                 return f"{baseUrl}/{url}"
         validationServices = {
