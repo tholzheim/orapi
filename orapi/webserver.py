@@ -19,6 +19,7 @@ from wtforms import SelectField, SubmitField, BooleanField, StringField
 from wtforms.widgets import Select as Select
 
 import orapi
+from orapi.locationService import LocationServiceBlueprint
 from orapi.orapiservice import OrApi, WikiTableEditing, OrApiService
 from flask import request, send_file, render_template, flash, jsonify, url_for
 import socket
@@ -65,6 +66,7 @@ class WebServer(AppWrap):
         self.authenticate=False
         self.sseBluePrint = SSE_BluePrint(self.app, 'sse', appWrap=self)
         self.validationService = ValidationBlueprint(self.app, "validation", appWrap=self)
+        self.locationService = LocationServiceBlueprint(self.app, "location", appWrap=self)
 
         @self.app.route('/')
         def home():

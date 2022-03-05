@@ -11,7 +11,7 @@ from onlinespreadsheet.tableediting import TableEditing
 class ValidationBlueprint(object):
     """
         Flask Blueprint providing routes to the profile pages
-        """
+    """
 
     def __init__(self, app, name: str, template_folder: str = None, appWrap=None):
         '''
