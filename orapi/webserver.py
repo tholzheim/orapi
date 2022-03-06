@@ -243,8 +243,8 @@ class WebServer(AppWrap):
         # add orapi links/buttons
         for record in lod:
             pageTitle = record.get("pageTitle")
-            download=Link(url=self.basedUrl(url_for(f"getSeries", series=pageTitle))+f"?source=or", title="Download")
-            downloadExcel = Link(url=self.basedUrl(url_for(f"getSeries", series=pageTitle)) + f"?format=excel&source=or", title="Excel")
+            download=Link(url=self.basedUrl(url_for(f"getSeries", series=pageTitle))+f"?source=orclone", title="Download")
+            downloadExcel = Link(url=self.basedUrl(url_for(f"getSeries", series=pageTitle)) + f"?format=excel&source=orclone", title="Excel")
             upload = Link(url=self.basedUrl(url_for(f"updateSeries"))+f"?target=orclone", title="Upload")
             publish = Link(url=self.basedUrl(url_for(f"publishSeries", series=pageTitle))+f"?source=orclone", title="Publish")
             record["orapi"]=f"{download} ({downloadExcel}) | {upload} | {publish}"

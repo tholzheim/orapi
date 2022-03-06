@@ -6,7 +6,7 @@
 {% from 'bootstrap/table.html' import render_table %}
 {% block content %}
     {{ render_form(uploadForm, extra_classes="dropzone") }}
-
+    <a href="https://confident.dbis.rwth-aachen.de/orfixed/index.php?title=Orapi#Upload">Orapi Upload Documentation</a>
     {% if progress %}
         <h1>Progress</h1>
         {{ progress.progressWithDisplayOfResult()|safe }}
