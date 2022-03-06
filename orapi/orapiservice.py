@@ -3,6 +3,7 @@ import json
 from collections.abc import Generator
 from datetime import datetime
 from functools import partial
+from time import sleep
 from typing import cast
 
 import requests
@@ -22,6 +23,7 @@ from wikifile.wikiFile import WikiFile
 from wikifile.wikiFileManager import WikiFileManager
 from corpus.smw.topic import SMWEntity
 
+from orapi.locationService import LocationService
 from orapi.utils import WikiUserInfo, PageHistory
 
 
@@ -185,6 +187,7 @@ class OrApi:
                 fnName=callback.func.__name__
             else:
                 fnName=callback.__name__
+            sleep(0.05)  # slow down progress display (also workaround for delayed msg progress display )
             yield f"Starting {fnName}"
             callback(tableEditing)
             yield "✅<br>"
@@ -207,12 +210,17 @@ class OrApi:
         tableEditing.addLoD(name=OrApi.SERIES_TEMPLATE_NAME, lod=spreadsheet.getTable(OrApi.SERIES_TEMPLATE_NAME))
         return tableEditing
 
-    def uploadLodTableGenerator(self, tableEditing:WikiTableEditing, headers=None, isDryRun:bool=False) -> Generator:
+    def uploadLodTableGenerator(self,
+                                tableEditing:WikiTableEditing,
+                                headers=None,
+                                ensureLocationsExits: bool = True,
+                                isDryRun:bool=False) -> Generator:
         """
         Uses the given table to update the wikipages corresponding to the lod records.
         Args:
             tableEditing: entity records which are used to update the wiki
             isDryRun(bool): Only if False the pages in the wiki are updated.
+            ensureLocationsExits(bool): If true ensure that for the locations of the events a corresponding page exists
 
         Returns:
             yields the progress of the update
@@ -229,6 +237,7 @@ class OrApi:
         self.normalizeEntityProperties(tableEditing, reverse=True)
         toLink = self.propertyToLinkMap().get("pageTitle")
         wikiFileManager=WikiFileManager(sourceWikiId=self.wikiId, targetWikiId=self.wikiId)
+        locations = set()
         for entityType, entities in tableEditing.lods.items():
             if isinstance(entities, list):
                 for entity in entities:
@@ -244,6 +253,9 @@ class OrApi:
                         else:
                             yield "Dryrun! (not updated)"
                         yield "✅<br>"
+                        for locationType in ["Country", "Region", "State", "City"]:
+                            locations.add(entity.get(locationType, None))
+        yield from self.ensureLocationExists(locations, isDryRun=isDryRun)
 
     def validate(self, tableEditing:WikiTableEditing, validationServices:dict):
         """
@@ -321,21 +333,41 @@ class OrApi:
                     yield "Dryrun! (not updated)"
                 yield "✅<br>"
         if ensureLocationsExits:
-            yield f"<br>Ensure location pages exist for publsied series:<br>"
-            for location in locations:
-                if location is None:
-                    continue
-                if wikiFileManager.wikiPush.toWiki.getPage(location).exists:
-                    yield f"Already exists: {getTargetWikPageLink(location)} ✅<br>"
-                else:
-                    yield f"Publishing: {getTargetWikPageLink(location)} ..."
-                    wikiFile = wikiFileManager.getWikiFileFromWiki(location)
-                    if not isDryRun:
-                        wikiFile.pushToWiki(f"Pushed from {self.wikiId} by {publisher}")
-                    else:
-                        yield "Dryrun! (not updated)"
-                    yield  "✅<br>"
+            yield from self.ensureLocationExists(locations, isDryRun=isDryRun)
         yield "Publishing completed"
+
+    def ensureLocationExists(self, locations:set, isDryRun:bool=False) -> Generator:
+        """
+        Ensures that for the given list of locations the corresponding location page exists in the wiki
+        Args:
+            locations(list): list of locations for which a corresponding location page should exist
+
+        Returns:
+            yields progress
+        """
+        wikiFileManager = WikiFileManager(sourceWikiId=self.targetWikiId, targetWikiId=self.targetWikiId)
+        ts = wikiFileManager.wikiPush.toWiki.site.site
+        targetWikiUrl = ts["server"] + ts["scriptpath"]
+        getTargetWikPageLink = lambda pageTitle: Link(f'{targetWikiUrl}/index.php?title={pageTitle}', pageTitle)
+        yield f"<br>Ensure location pages exist for publsied series:<br>"
+        locationService = LocationService()
+        for location in locations:
+            if location is None:
+                continue
+            page = wikiFileManager.wikiPush.toWiki.getPage(location)
+            if page.exists:
+                yield f"Already exists: {getTargetWikPageLink(location)} ✅<br>"
+            else:
+                yield f"Publishing: {getTargetWikPageLink(location)} ..."
+                locationRecord = locationService.getLocationByOrName(location)
+                wikiFile = WikiFile(location, wikiFileManager=wikiFileManager, wikiText="")
+                wikiFile.addTemplate("Location", data=locationRecord, prettify=True)
+                if not isDryRun:
+                    wikiFile.pushToWiki(f"Pushed from {self.wikiId}")
+                else:
+                    yield "Dryrun! (not updated)"
+                yield "✅<br>"
+
 
     @property
     def wikiUrl(self):
@@ -449,6 +481,20 @@ class OrApi:
                 for key, value in entityRecord.items():
                     if isinstance(value, float) and value.is_integer():
                         entityRecords[key]=int(value)
+
+    def apiEnhancer(self, tableEditing:WikiTableEditing, apiUrl:str):
+        """
+        enhances the given TableEditing by calling the given apiUrl
+        Args:
+            tableEditing: table to enhance
+            apiUrl: RESTful API to call
+
+        Returns:
+
+        """
+        qres = requests.post(apiUrl, json=tableEditing.lods)
+        lods = qres.json()
+        tableEditing.lods=lods
 
     def getHtmlTables(self, tableEditing:WikiTableEditing):
         """
@@ -578,6 +624,7 @@ class OrApiService:
         self.defaultSourceWiki=defaultSourceWiki
         self.authUpdates=authUpdates
         self.orapis={}
+        self.enhancerURLs = {}
         wikiUserIds = list(WikiUser.getWikiUsers().keys())
         if wikiIds is None:
             self.wikiIds = wikiUserIds
@@ -599,10 +646,21 @@ class OrApiService:
             OrApi
         """
         orapi = OrApi(wikiId=wikiId, targetWikiId=targetWikiId, authUpdates=self.authUpdates, debug=self.debug)
+        for enhancerName, url in self.enhancerURLs.items():
+            orapi.optionalEnhancers[enhancerName] = partial(orapi.apiEnhancer, apiUrl=url)
         return orapi
 
     def getAvailableWikiChoices(self) -> list:
         return [(wid, wid) for wid in self.wikiIds]
+
+    def addEnhancerURLs(self, enhancerURLs:dict):
+        """
+        adds the given enhancer urls
+        Args:
+            enhancerURLs: enhancer nam ena d url pairs
+        """
+        if enhancerURLs is not None:
+            self.enhancerURLs = {**self.enhancerURLs, **enhancerURLs}
 
 
 class OrMigrateWrapper(object):

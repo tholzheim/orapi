@@ -92,6 +92,13 @@ class WebServer(AppWrap):
         def publishSeries(series:str):
             return self.publishSeries(series)
 
+        @self.app.before_first_request
+        def before_first_request():
+            enhancerUrls = {
+                "locationEnhancer": self.basedUrl(url_for("location.enhanceLocations"))
+            }
+            self.orapiService.enhancerURLs = enhancerUrls
+
     def init(self,orapiService:OrApiService, baseUrl:str=None):
         """
         Args:
@@ -123,9 +130,12 @@ class WebServer(AppWrap):
         downloadProgress=None
         sourceWiki=None
         buffer=None
+        enhancers=[]
         if request.method == "POST":
             responseFormat=downloadForm.responseFormat
             sourceWiki=downloadForm.chosenSourceWiki
+            if downloadForm.locationEnhancer.data:
+                enhancers.append(downloadForm.locationEnhancer.short_name)
         else:
             responseFormat=self.getRequestedFormat()
             source = request.values.get('source', "")
@@ -135,7 +145,7 @@ class WebServer(AppWrap):
         if sourceWiki is None:
             sourceWiki = self.orapiService.wikiIds[0]
         orapi = self.orapiService.getOrApi(sourceWiki)
-        tableEditing=orapi.getSeriesTableEditing(series)
+        tableEditing=orapi.getSeriesTableEditing(series, enhancers=enhancers)
         if responseFormat is ResponseType.JSON:
             tableEditing.enhance()
             return jsonify(tableEditing.lods)
@@ -171,7 +181,7 @@ class WebServer(AppWrap):
             targetWiki = uploadForm.chosenTargetWiki
             if not self.isAuthorized(wikiId=targetWiki):
                 return self._returnErrorMsg("You need to be logged into the wiki to publish a series", status="Error")
-            orapi = self.orapiService.getOrApi(targetWiki)
+            orapi = self.orapiService.getOrApi(targetWiki, targetWikiId=targetWiki)
             publisher = WikiUserInfo.fromWiki(orapi.wikiUrl, request.headers)
             if len(request.files) == 1:  #ToDo Extend for multiple file upload
                 tableEditing=orapi.getTableEditingFromSpreadsheet(list(request.files.values())[0], publisher)
@@ -432,6 +442,7 @@ class DownloadForm(FlaskForm):
     #                                  render_kw={"placeholder": "Enhancement steps to apply before downloading",
     #                                             "allowClear": 'true'})
     format=SelectField()
+    locationEnhancer = BooleanField("Enhance Location", default=False)
     submit=SubmitField(label="Download")
 
     def __init__(self, enhancerChoices:list=None, formatChoices:list=None, sourceWikiChoices:list=None):
@@ -466,7 +477,7 @@ class UploadForm(FlaskForm):
     #                                  render_kw={"placeholder": "Enhancement steps to apply before downloading",
     #                                             "allowClear": 'true'})
     dropzone = DropZoneField(id="files", url="/api/upload/series", uploadId="upload",configParams={'acceptedFiles': ".ods, .xlsx"})
-    validate = BooleanField(id="Validate", default=False)
+    validate = BooleanField("Validate", default=False)
     addPageEditorCreator = BooleanField("Add pageEditor & pageCreator", default="checked")
     dryRun = BooleanField(id="Dry run", default="checked")
     upload = ButtonField()

@@ -148,6 +148,30 @@ class LocationService:
             location['level'] = 3
         return location
 
+    def getLocationByOrName(self, name:str) -> dict:
+        """
+        get location information based on OR location name
+        Args:
+            name: name of the location
+
+        Returns:
+            dict
+        """
+        locParts = name.split("/")
+        locType = None
+        if len(locParts) == 1:
+            record = self.getCountry(locParts[0])
+            locType = "Country"
+        elif len(locParts) == 2:
+            record = self.getRegion(locParts[0], locParts[1])
+            locType = "Region"
+        elif len(locParts) == 3:
+            record = self.getCity(locParts[0], locParts[1], locParts[2])
+            locType = "City"
+        else:
+            return None
+        return self.toOpenResearchFormat(record, locType)
+
     def getCity(self, countryIso:str, regionIso:str, name:str):
         """
 
