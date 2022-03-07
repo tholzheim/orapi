@@ -97,8 +97,8 @@ class WebServer(AppWrap):
             def basedUrl(url:str) ->str:
                 """workaround for basedUrl"""
                 baseUrl = ""
-                if self.baseUrl:
-                    baseUrl = self.baseUrl
+                # if self.baseUrl:
+                #     baseUrl = self.baseUrl
                 if self.port == 80:
                     baseUrl = f"http://{self.host}{baseUrl}"
                 else:
