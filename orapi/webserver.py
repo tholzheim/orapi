@@ -94,8 +94,20 @@ class WebServer(AppWrap):
 
         @self.app.before_first_request
         def before_first_request():
+            def basedUrl(url:str) ->str:
+                """workaround for basedUrl"""
+                baseUrl = ""
+                if self.baseUrl:
+                    baseUrl = self.baseUrl
+                if self.port == 80:
+                    baseUrl = f"http://{self.host}{baseUrl}"
+                else:
+                    baseUrl = f"http://{self.host}:{self.port}{baseUrl}"
+                if url.startswith("/"):
+                    url = f"{baseUrl}{url}"
+                return url
             enhancerUrls = {
-                "locationEnhancer": self.basedUrl(url_for("location.enhanceLocations"))
+                "locationEnhancer": basedUrl(url_for("location.enhanceLocations"))
             }
             self.orapiService.enhancerURLs = enhancerUrls
 
