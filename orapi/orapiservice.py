@@ -349,7 +349,7 @@ class OrApi:
         ts = wikiFileManager.wikiPush.toWiki.site.site
         targetWikiUrl = ts["server"] + ts["scriptpath"]
         getTargetWikPageLink = lambda pageTitle: Link(f'{targetWikiUrl}/index.php?title={pageTitle}', pageTitle)
-        yield f"<br>Ensure location pages exist for publsied series:<br>"
+        yield f"<br>Ensure location pages exist for published series:<br>"
         locationService = LocationService()
         for location in locations:
             if location is None:
