@@ -31,6 +31,8 @@ class TestWebServer(Basetest):
     def setUp(self, **kwargs) -> None:
         Basetest.setUp(self, **kwargs)
         self.testWikiIds=["orfixed"]
+        for wikiId in self.testWikiIds:
+            self.getWikiUser(wikiId)
         self.ws,self.app, self.client = TestWebServer.getApp(self.testWikiIds, auth=False)
         self.context = self.app.test_request_context()
         self.context.push()
