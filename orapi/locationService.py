@@ -1,6 +1,7 @@
 from corpus.datasources.openresearch import OREvent
 from flask import Blueprint, jsonify, request
 from geograpy.locator import LocationContext, Region, Country, Location, City, Locator
+from lodstorage.sql import SQLDB
 from onlinespreadsheet.tableediting import TableEditing
 from ormigrate.issue220_location import LocationFixer
 
@@ -99,7 +100,8 @@ class LocationService:
     REGION = "region"
     COUNTRY = "country"
 
-    def __init__(self):
+    def __init__(self, debug:bool=False):
+        self.debug=debug
         Locator.getInstance().downloadDB()
         self.locationContext = LocationContext.fromCache()
 
@@ -108,7 +110,9 @@ class LocationService:
         Returns:
             geograpy3 locations database
         """
-        return self.locationContext.cityManager.getSQLDB(self.locationContext.cityManager.getCacheFile())
+        cacheFile = self.locationContext.cityManager.getCacheFile()
+        db = SQLDB(cacheFile, debug=self.debug, errorDebug=self.debug)
+        return db
 
     def guessLocation(self, name:str):
         pass
