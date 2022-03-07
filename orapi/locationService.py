@@ -103,8 +103,11 @@ class LocationService:
         Locator.getInstance().downloadDB()
         self.locationContext = LocationContext.fromCache()
 
-    @property
-    def db(self):
+    def getSqlDb(self):
+        """
+        Returns:
+            geograpy3 locations database
+        """
         return self.locationContext.cityManager.getSQLDB(self.locationContext.cityManager.getCacheFile())
 
     def guessLocation(self, name:str):
@@ -188,7 +191,8 @@ class LocationService:
         WHERE name = ?
         AND regionIso = ?
         """
-        qres = self.db.query(query, (name, f"{countryIso}-{regionIso}"))
+        db = self.getSqlDb()
+        qres = db.query(query, (name, f"{countryIso}-{regionIso}"))
         if qres:
             return qres[0]
         return None
@@ -207,7 +211,8 @@ class LocationService:
         FROM RegionLookup
         WHERE iso = ?
         """
-        qres = self.db.query(query, (f"{countryIso}-{regionIso}",))
+        db = self.getSqlDb()
+        qres = db.query(query, (f"{countryIso}-{regionIso}",))
         if qres:
             return qres[0]
         return None
@@ -225,7 +230,8 @@ class LocationService:
         FROM CountryLookup
         WHERE iso = ?
         """
-        qres = self.db.query(query, (countryIso,))
+        db = self.getSqlDb()
+        qres = db.query(query, (countryIso,))
         if qres:
             return qres[0]
         return None
@@ -285,7 +291,8 @@ class LocationService:
         FROM { table }
         WHERE wikidataid == ?
         """
-        queryRes = self.db.query(query, (location.wikidataid, ))
+        db = self.getSqlDb()
+        queryRes = db.query(query, (location.wikidataid, ))
         return [record.get('label') for record in queryRes]
 
 
