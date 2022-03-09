@@ -37,7 +37,16 @@ class TestLocationServiceBlueprint(TestWebServer):
         self.assertEqual("Q65", record['wikidataid'])
         # test reduced response
         record_reduced = self.client.get(path, query_string={"reduce":True}).json
-        self.assertIn("coordinates", record_reduced)
+        expectedLocation={
+            "coordinates":"34.05223, -118.24368",
+            "level":5,
+            "name":"Los Angeles",
+            "partOf":"US/CA",
+            "wikidataid":"Q65",
+            "locationKind":"City"
+        }
+
+        self.assertDictEqual(expectedLocation, record_reduced)
 
 
 class TestLocationService(Basetest):

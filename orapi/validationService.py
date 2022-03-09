@@ -216,7 +216,6 @@ class OrdinalValidator(Validator):
     def validate(cls, tableEditing:TableEditing) -> dict:
         return cls.validateRecordBased(tableEditing)
 
-
     @classmethod
     def validateRecord(cls, entityName:str, entityType:str, entityRecord:dict) -> (bool, list):
         if entityType != OREvent.templateName:
@@ -234,7 +233,7 @@ class OrdinalValidator(Validator):
 
 
     @classmethod
-    def validateOrdinalFormat(self, ordinal) -> bool:
+    def validateOrdinalFormat(cls, ordinal) -> bool:
         """
         Validates the given ordinal
         Args:
@@ -251,3 +250,4 @@ class OrdinalValidator(Validator):
             return True
         else:
             return False
+

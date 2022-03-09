@@ -146,12 +146,15 @@ class LocationService:
             "coordinates": f"{locationRecord.get('lat', 0)}, {locationRecord.get('lon', 0)}"
         }
         if locationType == "City":
+            location['locationKind'] = "City"
             location['level'] = 5
             location['partOf'] = locationRecord.get("regionIso", "").replace("-", "/")
         elif locationType == "Region":
+            location['locationKind'] = "Region"
             location['level'] = 4
             location['partOf'] = locationRecord.get("countryIso", "")
         elif locationType == "Country":
+            location['locationKind'] = "Country"
             location['level'] = 3
         return location
 
