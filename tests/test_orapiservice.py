@@ -154,3 +154,20 @@ class TestOrApi(Basetest):
         validationResult = {'Event series': {}, 'Event': {'3DUI 2010': {"ordinal validation":{'result': True, 'errors': []}}, '3DUI 2016': {"ordinal validation":{'result': None, 'errors': ['Ordinal missing']}}}}
         tables = self.orapi.getValidationTable(validationResult)
         print(tables)
+
+    def test_completeProperties(self):
+        """
+        tests completeProperties
+        """
+        tableEditing = WikiTableEditing(user=self.testUser)
+        # tests adding blank entities for missing entity Type
+        self.orapi.completeProperties(tableEditing)
+        self.assertIn(OREvent.templateName, tableEditing.lods)
+        self.assertEqual(len(tableEditing.lods),2)
+        self.assertEqual(len(tableEditing.lods[OREvent.templateName]), 1)
+        # check if missing properties are added
+        del tableEditing.lods[OREvent.templateName][0]["acronym"]
+        self.assertNotIn("acronym", tableEditing.lods[OREvent.templateName][0])
+        self.orapi.completeProperties(tableEditing)
+        self.assertIn("acronym", tableEditing.lods[OREvent.templateName][0])
+

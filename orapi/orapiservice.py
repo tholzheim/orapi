@@ -424,17 +424,17 @@ class OrApi:
 
     def completeProperties(self, tableEditing:WikiTableEditing, restrict:bool=False):
         """
-        completes the entities in the tabelEditing lods by adding missing properties (if missing set value None)
+        completes the entities in the tableEditing LoDs by adding missing properties (if missing set value None)
         Args:
-            tableEditing: TableEditing with the entites to fetch in the lods
-            restrict(bool): If True limit the entity properties to the proerties defined in the corresponding Entity samples
+            tableEditing: TableEditing with the entities to fetch in the LoDs
+            restrict(bool): If True limit the entity properties to the properties defined in the corresponding Entity samples
 
         Returns:
             Nothing
         """
         lot = [  # (templateName, templateParamMap)
-            (OREvent.templateName, {"pageTitle": "pageTitle", **OREvent.getTemplateParamLookup()}),
-            (OREventSeries.templateName, {"pageTitle": "pageTitle", **OREventSeries.getTemplateParamLookup()})
+            (OREvent.templateName, ["pageTitle", *OREvent.getTemplateParamLookup().values()]),
+            (OREventSeries.templateName, ["pageTitle", *OREvent.getTemplateParamLookup().values()])
         ]
         for templateName, templateParams in lot:
             entityRecords=tableEditing.lods.get(templateName)
@@ -442,6 +442,9 @@ class OrApi:
                 LOD.setNone4List(entityRecords, templateParams)
                 if restrict:
                     tableEditing.lods[templateName]=LOD.filterFields(entityRecords, templateParams, reverse=True)
+            else:
+                # add one blank record for this entity type see issue #29
+                tableEditing.lods[templateName] = [{p:None for p in templateParams}]
 
     @staticmethod
     def normalizeEntityProperties(tableEditing:WikiTableEditing, reverse:bool=False):

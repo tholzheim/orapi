@@ -409,6 +409,7 @@ class WebServer(AppWrap):
         menu.addItem(MenuItem('https://github.com/tholzheim/orapi', 'openresearch'))
         menu.addItem(MenuItem('https://confident.dbis.rwth-aachen.de/or/index.php?title=Main_Page', 'orclone'))
         menu.addItem(MenuItem('https://confident.dbis.rwth-aachen.de/orfixed/index.php?title=Main_Page', 'orfixed'))
+        menu.addItem(MenuItem(self.basedUrl(url_for("getSeries",series="blankSeries", format="excel")), "Blank Series"))
         return menu
 
     def renderTemplate(self, template:str, **kwargs):

@@ -45,7 +45,6 @@ class TestLocationServiceBlueprint(TestWebServer):
             "wikidataid":"Q65",
             "locationKind":"City"
         }
-
         self.assertDictEqual(expectedLocation, record_reduced)
 
 
