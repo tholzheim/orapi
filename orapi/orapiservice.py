@@ -235,7 +235,6 @@ class OrApi:
         if isDryRun:
             yield "Dry Run!!!<br>"
         self.normalizeEntityProperties(tableEditing, reverse=True)
-        toLink = self.propertyToLinkMap().get("pageTitle")
         wikiFileManager=WikiFileManager(sourceWikiId=self.wikiId, targetWikiId=self.wikiId)
         locations = set()
         for entityType, entities in tableEditing.lods.items():
@@ -245,8 +244,9 @@ class OrApi:
                     if isinstance(entity, dict):
                         pageTitle = entity.get('pageTitle')
                         entity = {key:value for key, value in entity.items() if key in self.allowedTemplateParams.get(entityType, [])}
-                        yield f"Updating {toLink(pageTitle)} ..."
-                        wikiFile=wikiFileManager.getWikiFileFromWiki(pageTitle)
+                        wikiFile = wikiFileManager.getWikiFileFromWiki(pageTitle)
+                        yield f"Updating {self.getPageLink(self.targetWikiId, pageTitle, exists=wikiFile.wikiText)} ..."
+
                         wikiFile.updateTemplate(template_name=entityType, args=entity, prettify=True, overwrite=True)
                         if not isDryRun:
                             wikiFile.pushToWiki(f"Updated through orapi")
@@ -311,13 +311,13 @@ class OrApi:
         tableEditing = self.getSeriesTableEditing(seriesAcronym)
         ts = wikiFileManager.wikiPush.toWiki.site.site
         targetWikiUrl = ts["server"] + ts["scriptpath"]
-        getTargetWikPageLink = lambda pageTitle: Link(f'{targetWikiUrl}/index.php?title={pageTitle}', pageTitle)
         locations = set()
         for entityType, lod in tableEditing.lods.items():
             for record in lod:
                 entityName = record.get("pageTitle")
-                yield f"Publishing: {getTargetWikPageLink(entityName)} ..."
-                pageCreator = PageHistory(entityName, targetWikiUrl).getPageOwner()
+                pageHistory = PageHistory(entityName, targetWikiUrl)
+                yield f"Publishing: {self.getPageLink(targetWikiUrl, entityName, exists=pageHistory.exists())} ..."
+                pageCreator = pageHistory.getPageOwner()
                 wikiFile = wikiFileManager.getWikiFileFromWiki(entityName)
                 record = wikiFile.extractTemplate(entityType)[0]
                 for locationType in ["Country", "Region", "State", "City"]:
@@ -334,7 +334,23 @@ class OrApi:
                 yield "✅<br>"
         if ensureLocationsExits:
             yield from self.ensureLocationExists(locations, isDryRun=isDryRun)
-        yield "Publishing completed"
+        yield
+
+    def getPageLink(self, wikiUrl:str, pageTitle:str, exists:bool=True):
+        """
+
+        Args:
+            wikiUrl: url of the wiki
+            pageTitle: pageTitle
+            exists: True if the page exists. Otherwise the link will be rendered in red
+
+        Returns:
+        Link to the page
+        """
+        style = None
+        if not exists:
+            style = "color: red"
+        return Link(f'{wikiUrl}/index.php?title={pageTitle}', pageTitle, style=style)
 
     def ensureLocationExists(self, locations:set, isDryRun:bool=False) -> Generator:
         """
@@ -348,7 +364,6 @@ class OrApi:
         wikiFileManager = WikiFileManager(sourceWikiId=self.targetWikiId, targetWikiId=self.targetWikiId)
         ts = wikiFileManager.wikiPush.toWiki.site.site
         targetWikiUrl = ts["server"] + ts["scriptpath"]
-        getTargetWikPageLink = lambda pageTitle: Link(f'{targetWikiUrl}/index.php?title={pageTitle}', pageTitle)
         yield f"<br>Ensure location pages exist for published series:<br>"
         locationService = LocationService()
         for location in locations:
@@ -356,9 +371,9 @@ class OrApi:
                 continue
             page = wikiFileManager.wikiPush.toWiki.getPage(location)
             if page.exists:
-                yield f"Already exists: {getTargetWikPageLink(location)} ✅<br>"
+                yield f"Already exists: {self.getPageLink(targetWikiUrl, location, page.exists)} ✅<br>"
             else:
-                yield f"Publishing: {getTargetWikPageLink(location)} ..."
+                yield f"Publishing: {self.getPageLink(targetWikiUrl, location, page.exists)} ..."
                 locationRecord = locationService.getLocationByOrName(location)
                 wikiFile = WikiFile(location, wikiFileManager=wikiFileManager, wikiText="")
                 wikiFile.addTemplate("Location", data=locationRecord, prettify=True)

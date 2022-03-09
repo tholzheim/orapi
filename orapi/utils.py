@@ -96,6 +96,16 @@ class PageHistory:
             if getattr(rev, 'parentid', -1) == 0:  # revision with parentid == 0 is the first revision of the page
                 return getattr(rev, 'user')
 
+    def exists(self) -> bool:
+        """
+        Checks if the page exists
+        Assumption: If the page exists than the exists at least one revision entry
+
+        Returns:
+            True if the page exists otherwise False
+        """
+        return len(self.revisions) > 0
+
 
 class WikiUserInfo(object):
     """
