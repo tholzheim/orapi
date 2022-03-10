@@ -145,6 +145,8 @@ class LocationService:
             "wikidataid": locationRecord.get("wikidataid"),
             "coordinates": f"{locationRecord.get('lat', 0)}, {locationRecord.get('lon', 0)}"
         }
+        if locationRecord is None:
+            return None
         if locationType == "City":
             location['locationKind'] = "City"
             location['level'] = 5
