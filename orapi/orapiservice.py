@@ -375,15 +375,19 @@ class OrApi:
             if page.exists:
                 yield f"Already exists: {self.getPageLink(targetWikiUrl, location, page.exists)} ✅<br>"
             else:
-                yield f"Publishing: {self.getPageLink(targetWikiUrl, location, page.exists)} ..."
                 locationRecord = locationService.getLocationByOrName(location)
-                wikiFile = WikiFile(location, wikiFileManager=wikiFileManager, wikiText="")
-                wikiFile.addTemplate("Location", data=locationRecord, prettify=True)
-                if not isDryRun:
-                    wikiFile.pushToWiki(f"Pushed from {self.wikiId}")
+                if locationRecord == {}:
+                    yield f"Invalid location: {location}<br>"
                 else:
-                    yield "Dryrun! (not updated)"
-                yield "✅<br>"
+                    yield f"Publishing: {self.getPageLink(targetWikiUrl, location, page.exists)} ..."
+
+                    wikiFile = WikiFile(location, wikiFileManager=wikiFileManager, wikiText="")
+                    wikiFile.addTemplate("Location", data=locationRecord, prettify=True)
+                    if not isDryRun:
+                        wikiFile.pushToWiki(f"Pushed from {self.wikiId}")
+                    else:
+                        yield "Dryrun! (not updated)"
+                    yield "✅<br>"
 
 
     @property

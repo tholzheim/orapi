@@ -141,7 +141,7 @@ class LocationService:
 
         """
         if locationRecord is None:
-            return None
+            return {}
         location = {
             "name": locationRecord.get("name"),
             "wikidataid": locationRecord.get("wikidataid"),
@@ -181,7 +181,7 @@ class LocationService:
             record = self.getCity(locParts[0], locParts[1], locParts[2])
             locType = "City"
         else:
-            return None
+            return {}
         return self.toOpenResearchFormat(record, locType)
 
     def getCity(self, countryIso:str, regionIso:str, name:str):
