@@ -450,8 +450,8 @@ class OrApi:
             Nothing
         """
         lot = [  # (templateName, templateParamMap)
-            (OREvent.templateName, ["pageTitle", *OREvent.getTemplateParamLookup().values()]),
-            (OREventSeries.templateName, ["pageTitle", *OREvent.getTemplateParamLookup().values()])
+            (OREvent.templateName, ["pageTitle", *OREvent.getTemplateParamLookup().keys()]),
+            (OREventSeries.templateName, ["pageTitle", *OREvent.getTemplateParamLookup().keys()])
         ]
         for templateName, templateParams in lot:
             entityRecords=tableEditing.lods.get(templateName)
