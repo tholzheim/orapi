@@ -166,8 +166,8 @@ class TestOrApi(Basetest):
         self.assertEqual(len(tableEditing.lods),2)
         self.assertEqual(len(tableEditing.lods[OREvent.templateName]), 1)
         # check if missing properties are added
-        del tableEditing.lods[OREvent.templateName][0]["acronym"]
-        self.assertNotIn("acronym", tableEditing.lods[OREvent.templateName][0])
+        del tableEditing.lods[OREvent.templateName][0]["Acronym"]
+        self.assertNotIn("Acronym", tableEditing.lods[OREvent.templateName][0])
         self.orapi.completeProperties(tableEditing)
-        self.assertIn("acronym", tableEditing.lods[OREvent.templateName][0])
+        self.assertIn("Acronym", tableEditing.lods[OREvent.templateName][0])
 
