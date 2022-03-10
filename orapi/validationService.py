@@ -4,6 +4,7 @@ from typing import Dict, Tuple
 
 import validators
 from corpus.datasources.openresearch import OREvent, OREventSeries
+from fb4.widgets import Link
 from flask import Blueprint, request, jsonify
 from onlinespreadsheet.tableediting import TableEditing
 
@@ -127,7 +128,6 @@ class HomepageValidator(Validator):
     """
     validates the homepage url
     """
-    TIMEOUT = 2
 
     @classmethod
     def validate(cls, tableEditing:TableEditing) -> dict:
@@ -175,10 +175,10 @@ class HomepageValidator(Validator):
                     if not contains:
                         errMsg.append("Expected content not found")
             else:
-                isArchived = cls.isArchivedUrl(url)
+                archivUrl = ArchivedUrl(url)
                 msg = "Site not available"
-                if isArchived:
-                    msg += " (but archived)"
+                if archivUrl.isArchived():
+                    msg += f" {Link(url=archivUrl.getArchiveUrl(), title='(but archived)')}"
                 errMsg.append(msg)
         isValid = all([hasValidFormat, isAvailable, contains])
         return isValid, errMsg
@@ -194,17 +194,7 @@ class HomepageValidator(Validator):
         Returns:
 
         """
-        try:
-            archiveUrl = f"https://archive.org/wayback/available?url={url}"
-            resp = requests.get(archiveUrl, timeout=cls.TIMEOUT)
-            res = resp.json()
-            isArchived = False
-            if "archived_snapshots" in res:
-                if "closest" in res["archived_snapshots"]:
-                    isArchived = res["archived_snapshots"]["closest"].get("available", False)
-            return isArchived
-        except Exception as e:
-            return False
+        return ArchivedUrl(url).isArchived()
 
 
 class OrdinalValidator(Validator):
@@ -251,3 +241,54 @@ class OrdinalValidator(Validator):
         else:
             return False
 
+
+class ArchivedUrl:
+    """
+    Wrapper to access the Internet Archive availability api
+    """
+    TIMEOUT = 2
+
+    def __init__(self, url:str):
+        self.url=url
+        self.availabilityResponse = self.getAvailabilityResponse(self.url)
+
+    def isArchived(self) -> bool:
+        """
+        Returns:
+            bool True if url is archived. Otherwise False
+        """
+        isArchived = False
+        if "archived_snapshots" in self.availabilityResponse:
+            if "closest" in self.availabilityResponse["archived_snapshots"]:
+                isArchived = self.availabilityResponse["archived_snapshots"]["closest"].get("available", False)
+        return isArchived
+
+    def getArchiveUrl(self):
+        """
+
+        Returns:
+            str URL to the archived URL
+        """
+        if "archived_snapshots" in self.availabilityResponse:
+            if "closest" in self.availabilityResponse["archived_snapshots"]:
+                archiveUrl = self.availabilityResponse["archived_snapshots"]["closest"].get("url", None)
+                return archiveUrl
+
+    @classmethod
+    def getAvailabilityResponse(cls, url):
+        """
+        Checks whether the given url is archived or not
+        see https://archive.org/help/wayback_api.php
+        Args:
+            url: url to be checked
+
+        Returns:
+
+        """
+        try:
+            archiveUrl = f"https://archive.org/wayback/available?url={url}"
+            resp = requests.get(archiveUrl, timeout=cls.TIMEOUT)
+            res = resp.json()
+            return res
+        except Exception as e:
+            return {}

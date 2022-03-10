@@ -554,7 +554,7 @@ class OrApi:
                     if isValid:
                         entityValidation[valName] = "✅"
                     else:
-                        entityValidation[valName] = f"<div title='{errors}'>❗</div>"
+                        entityValidation[valName] = f"<div>❗ <p>{errors}</p> </div>"
                 entityValidations.append(entityValidation)
             headers = {"pageTitle":"pageTitle", **{k:k for k in LOD.getFields(entityValidations)}}
             table = LodTable(entityValidations, headers=headers, name=entityType, isDatatable=True)

@@ -33,7 +33,6 @@ class TestValidationService(Basetest):
         self.orapi.normalizeEntityProperties(tableEditing)
         return tableEditing
 
-
     def test_validateHomepage(self):
         """
         tests validating the homepage of series and events
@@ -73,7 +72,6 @@ class TestValidationService(Basetest):
         for testRecord in testMatrix:
             self.assertEqual(testRecord["expectedResult"], HomepageValidator.validateUrl(testRecord["url"], checkAvailability=True, mustContain=testRecord["mustContain"]))
 
-
     def test_validateOrdinalFormat(self):
         """
         tests if the ordinals are valid
@@ -97,3 +95,9 @@ class TestValidationService(Basetest):
         validationResult = OrdinalValidator.validate(tableEditing)
         print(validationResult)
 
+    def test_isArchivedUrl(self):
+        """
+        tests isArchivedUrl
+        """
+        url = "www.aaai.org/Conferences/AAAI-22/"
+        self.assertTrue(HomepageValidator.isArchivedUrl(url))
