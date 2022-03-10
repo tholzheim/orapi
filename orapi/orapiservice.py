@@ -236,6 +236,8 @@ class OrApi:
             yield "Dry Run!!!<br>"
         self.normalizeEntityProperties(tableEditing, reverse=True)
         wikiFileManager=WikiFileManager(sourceWikiId=self.wikiId, targetWikiId=self.wikiId)
+        ts = wikiFileManager.wikiPush.toWiki.site.site
+        targetWikiUrl = ts["server"] + ts["scriptpath"]
         locations = set()
         for entityType, entities in tableEditing.lods.items():
             if isinstance(entities, list):
@@ -245,7 +247,7 @@ class OrApi:
                         pageTitle = entity.get('pageTitle')
                         entity = {key:value for key, value in entity.items() if key in self.allowedTemplateParams.get(entityType, [])}
                         wikiFile = wikiFileManager.getWikiFileFromWiki(pageTitle)
-                        yield f"Updating {self.getPageLink(self.targetWikiId, pageTitle, exists=wikiFile.wikiText)} ..."
+                        yield f"Updating {self.getPageLink(targetWikiUrl, pageTitle, exists=wikiFile.wikiText)} ..."
 
                         wikiFile.updateTemplate(template_name=entityType, args=entity, prettify=True, overwrite=True)
                         if not isDryRun:
