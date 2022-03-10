@@ -51,7 +51,7 @@ class TestValidationService(Basetest):
             {
                 "url": "www.aaai.org/Conferences/AAAI-22/",
                 "mustContain": "AAAI",
-                "expectedResult": (False, ["Url not in valid format", "Site not available (but archived)"])
+                "expectedResult": (False, ["Url not in valid format", "Site not available", "(but archived)"])
             },
             {
                 "url":"https://aaai.org/Conferences/AAAI-22/",
@@ -70,7 +70,10 @@ class TestValidationService(Basetest):
             }
         ]
         for testRecord in testMatrix:
-            self.assertEqual(testRecord["expectedResult"], HomepageValidator.validateUrl(testRecord["url"], checkAvailability=True, mustContain=testRecord["mustContain"]))
+            isValid, errs = HomepageValidator.validateUrl(testRecord["url"], checkAvailability=True, mustContain=testRecord["mustContain"])
+            self.assertEqual(testRecord["expectedResult"][0], isValid, testRecord)
+            for errMsg in testRecord["expectedResult"][1]:
+                self.assertIn(errMsg, ", ".join(errs))
 
     def test_validateOrdinalFormat(self):
         """

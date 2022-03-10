@@ -255,7 +255,9 @@ class OrApi:
                         yield "✅<br>"
                         for locationType in ["Country", "Region", "State", "City"]:
                             locations.add(entity.get(locationType, None))
-        yield from self.ensureLocationExists(locations, isDryRun=isDryRun)
+        if ensureLocationsExits:
+            yield from self.ensureLocationExists(locations, isDryRun=isDryRun)
+        yield "Completed Upload!"
 
     def validate(self, tableEditing:WikiTableEditing, validationServices:dict):
         """
@@ -334,7 +336,7 @@ class OrApi:
                 yield "✅<br>"
         if ensureLocationsExits:
             yield from self.ensureLocationExists(locations, isDryRun=isDryRun)
-        yield
+        yield "Completed Publish"
 
     def getPageLink(self, wikiUrl:str, pageTitle:str, exists:bool=True):
         """

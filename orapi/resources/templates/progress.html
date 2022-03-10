@@ -1,0 +1,12 @@
+{% extends 'base.html' %}
+{% from 'bootstrap/form.html' import render_form %}
+{% from 'bootstrap/pagination.html' import render_pager, render_pagination %}
+{% import 'macros.html' as macros %}
+{% from 'bootstrap/table.html' import render_table %}
+{% block content %}
+    <h1>{{ title }}</h1>
+    {% if progress %}
+        <h2>Progress</h2>
+        {{ progress.progressWithDisplayOfResult()|safe }}
+    {% endif %}
+{% endblock %}

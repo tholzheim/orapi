@@ -128,6 +128,7 @@ class HomepageValidator(Validator):
     """
     validates the homepage url
     """
+    TIMEOUT = 2
 
     @classmethod
     def validate(cls, tableEditing:TableEditing) -> dict:

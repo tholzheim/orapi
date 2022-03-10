@@ -227,7 +227,10 @@ class WebServer(AppWrap):
                                 yield "→ valid ✅<br>"
                         if uploadForm.addPageEditorCreator.data:
                             orapi.addPageHistoryProperties(tableEditing)
-                        updateGenerator = orapi.uploadLodTableGenerator(tableEditing, headers=headers, isDryRun=uploadForm.isDryRun)
+                        updateGenerator = orapi.uploadLodTableGenerator(tableEditing,
+                                                                        headers=headers,
+                                                                        isDryRun=uploadForm.isDryRun,
+                                                                        ensureLocationsExits=uploadForm.ensureLocationExists.data)
                         yield from updateGenerator
                         seriesTable, eventsTable = orapi.getHtmlTables(tableEditing)
                         yield DictStreamResult(str(seriesTable) + str(eventsTable))
@@ -237,6 +240,9 @@ class WebServer(AppWrap):
                 except Exception as e:
                     print(e)
                     raise e
+                return self.renderTemplate('progress.html',
+                                           title=f"Uploading {file.filename}",
+                                           progress=uploadProgress)
         return self.renderTemplate('upload.html',
                                uploadForm=uploadForm,
                                progress=uploadProgress)
@@ -521,6 +527,7 @@ class UploadForm(FlaskForm):
     dropzone = DropZoneField(id="files", url="/api/upload/series", uploadId="upload",configParams={'acceptedFiles': ".ods, .xlsx"})
     validate = BooleanField("Validate", default=False)
     addPageEditorCreator = BooleanField("Add pageEditor & pageCreator", default="checked")
+    ensureLocationExists = BooleanField("Ensure Location pages exist", default=True)
     dryRun = BooleanField(id="Dry run", default="checked")
     upload = ButtonField()
 
