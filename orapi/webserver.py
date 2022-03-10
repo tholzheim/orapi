@@ -1,3 +1,4 @@
+import datetime
 import json
 import os
 import sys
@@ -111,13 +112,20 @@ class WebServer(AppWrap):
             }
             self.orapiService.enhancerURLs = enhancerUrls
 
-    def init(self,orapiService:OrApiService, baseUrl:str=None):
+    def init(self,orapiService:OrApiService, baseUrl:str=None, fileStoragePath:str=None):
         """
         Args:
             orApi(OrApi): api service to handle the requested actions
+            baseUrl(str): base url of the server
+            fileStoragePath(str): location to store the uploaded files
         """
         self.orapiService = orapiService
         self.baseUrl = baseUrl
+        if fileStoragePath is None:
+            fileStoragePath = os.path.join("/tmp", "orapi")
+        self.fileStoragePath = os.path.abspath(fileStoragePath)
+        if not os.path.exists(self.fileStoragePath):
+            os.makedirs(self.fileStoragePath)
 
     def home(self):
         return self.renderTemplate('home.html')
@@ -196,7 +204,12 @@ class WebServer(AppWrap):
             orapi = self.orapiService.getOrApi(targetWiki, targetWikiId=targetWiki)
             publisher = WikiUserInfo.fromWiki(orapi.wikiUrl, request.headers)
             if len(request.files) == 1:  #ToDo Extend for multiple file upload
-                tableEditing=orapi.getTableEditingFromSpreadsheet(list(request.files.values())[0], publisher)
+                file = list(request.files.values())[0]
+                if not uploadForm.isDryRun:
+                    filename = self.getFileName(file.filename, publisher.name)
+                    filePath = os.path.join(self.fileStoragePath, filename)
+                    file.save(filePath)
+                tableEditing=orapi.getTableEditingFromSpreadsheet(file, publisher)
                 try:
                     validationServices = self.getValidationServices()
                     def generator(tableEditing:WikiTableEditing, headers, validate:bool=False):
@@ -227,6 +240,22 @@ class WebServer(AppWrap):
         return self.renderTemplate('upload.html',
                                uploadForm=uploadForm,
                                progress=uploadProgress)
+
+    def getFileName(self, filename:str, uploader:str):
+        """
+        Generates a unique filename based on the given input
+        Args:
+            filename: name of the uploaded file
+            uploader: name of the uploader
+
+        Returns:
+            str
+        """
+        if uploader is None:
+            uploader = "unkown"
+        date = datetime.datetime.now()
+        res = f"{date.isoformat()}_{uploader}_{filename}"
+        return res
 
     def getValidationServices(self):
         """
@@ -550,10 +579,11 @@ def main(argv=None):
     parser.add_argument('--host', default=None, help="host (server name)")
     parser.add_argument('--requireAuthentication', action="store_true", help="Require wiki session cookie to update a wiki")
     parser.add_argument('--verbose', default=True, action="store_true", help="should relevant server actions be logged [default: %(default)s]")
+    parser.add_argument('--fileStoragePath', help="location to store the uploaded files [default: /tmp/orapi]")
     args = parser.parse_args()
     web.optionalDebug(args)
-    #ToDo: Exchange OrApi with OrApi Service
-    web.init(orapiService=OrApiService(wikiIds=args.wikiIds, authUpdates=args.requireAuthentication), baseUrl=args.baseUrl)
+    orapiService = OrApiService(wikiIds=args.wikiIds, authUpdates=args.requireAuthentication)
+    web.init(orapiService=orapiService, baseUrl=args.baseUrl, fileStoragePath=args.fileStoragePath)
     web.run(args)
 
 if __name__ == '__main__':

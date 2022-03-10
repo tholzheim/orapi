@@ -107,3 +107,16 @@ class TestWebServer(Basetest):
         baseUrl="/orfixed"
         ws, app, client = TestWebServer.getApp(self.testWikiIds, auth=True, baseUrl=baseUrl)
         self.assertEqual(ws.sseBluePrint.baseUrl, baseUrl)
+
+    def test_getFileName(self):
+        """
+        tests getFileName
+        """
+        file = "AAAI.xlsx"
+        uploader = "orapi"
+        filename = self.ws.getFileName(file, uploader)
+        if self.debug:
+            print(filename)
+        self.assertIn(file, filename)
+        self.assertIn(uploader, filename)
+
