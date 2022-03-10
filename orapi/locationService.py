@@ -140,13 +140,13 @@ class LocationService:
         Returns:
 
         """
+        if locationRecord is None:
+            return None
         location = {
             "name": locationRecord.get("name"),
             "wikidataid": locationRecord.get("wikidataid"),
             "coordinates": f"{locationRecord.get('lat', 0)}, {locationRecord.get('lon', 0)}"
         }
-        if locationRecord is None:
-            return None
         if locationType == "City":
             location['locationKind'] = "City"
             location['level'] = 5
