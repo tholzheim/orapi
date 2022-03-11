@@ -245,7 +245,7 @@ class OrApi:
                     self.normalizePropsForWiki(entity)
                     if isinstance(entity, dict):
                         pageTitle = entity.get('pageTitle')
-                        entity = {key:value for key, value in entity.items() if key in self.allowedTemplateParams.get(entityType, [])}
+                        entity = {key:value for key, value in entity.items() if key in self.allowedTemplateParams.get(entityType, []) and value is not None}
                         wikiFile = wikiFileManager.getWikiFileFromWiki(pageTitle)
                         yield f"Updating {self.getPageLink(targetWikiUrl, pageTitle, exists=wikiFile.wikiText)} ..."
 
