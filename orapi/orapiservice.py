@@ -1,11 +1,13 @@
 import copy
 import json
+import re
 from collections.abc import Generator
 from datetime import datetime
 from functools import partial
 from time import sleep
 from typing import cast
 
+import dateutil.parser
 import requests
 from corpus.datasources.openresearch import OREvent, OREventSeries
 from fb4.widgets import Link, Image, LodTable
@@ -418,6 +420,7 @@ class OrApi:
 
     def fetchEntityPropertiesFromMarkup(self, tableEditing:WikiTableEditing):
         """
+        # ToDo: Migrate to WikiPage usage
         Fetches for each entity in the lod the entity properties from the page markup
         Args:
             tableEditing: TableEditing with the entites to fetch in the lods
@@ -506,7 +509,19 @@ class OrApi:
             for entityRecord in entityRecords:
                 for key, value in entityRecord.items():
                     if isinstance(value, float) and value.is_integer():
-                        entityRecords[key]=int(value)
+                        entityRecord[key]=int(value)
+                    elif "date" in key.lower():
+                        try:
+                            if value is not None:
+                                if re.match("^(19|20)\d{2}$", value):
+                                    entityRecord["year"] = value
+                                    entityRecord[key] = None
+                                else:
+                                    date = dateutil.parser.parse(value).date()
+                                    entityRecord[key] = date.isoformat()
+                        except Exception as e:
+                            if self.debug:
+                                print(f"Value '{value}' could not be parsed to a date")
 
     def apiEnhancer(self, tableEditing:WikiTableEditing, apiUrl:str):
         """
@@ -568,9 +583,6 @@ class OrApi:
             table = LodTable(entityValidations, headers=headers, name=entityType, isDatatable=True)
             tables.append(table)
         return " ".join([str(table) for table in tables])
-
-
-
 
     def propertyToLinkMap(self) -> dict:
         """

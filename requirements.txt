@@ -4,7 +4,7 @@ flask-dropzone
 # https://github.com/SmartDataAnalytics/OpenResearch
 #ConferenceCorpus>=0.0.29
 # https://pypi.org/project/wikirender/
-#wikirender>=0.0.34
+wikirender>=0.0.41
 # https://pypi.org/project/pylodstorage/
 #pylodstorage>=0.1.10
 lxml #ToDo: seems to be missing in one of the imported modules

@@ -37,7 +37,7 @@ class PageRevision(JSONAble):
     @staticmethod
     def getRevisons(pageTitle:str, wikiUrl:str):
         """
-        Returns the revisons of the given page
+        Returns the revisions of the given page
 
         Args:
             pageTitle(str): pageTitle
