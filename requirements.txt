@@ -9,15 +9,10 @@ wikirender>=0.0.41
 #pylodstorage>=0.1.10
 lxml #ToDo: seems to be missing in one of the imported modules
 bs4
-#https://pypi.org/project/odfpy/
-odfpy
 # http://pydispatcher.sourceforge.net/
 PyDispatcher
 # https://pypi.org/project/APScheduler/
 APScheduler
-XlsxWriter
-# https://openpyxl.readthedocs.io/en/stable/
-openpyxl
 # https://github.com/WolfgangFahl/pyOnlineSpreadSheetEditing
 pyOnlineSpreadSheetEditing>=0.0.8
 # https://pypi.org/project/validators/
