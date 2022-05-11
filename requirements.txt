@@ -19,7 +19,7 @@ XlsxWriter
 # https://openpyxl.readthedocs.io/en/stable/
 openpyxl
 # https://github.com/WolfgangFahl/pyOnlineSpreadSheetEditing
-pyOnlineSpreadSheetEditing>=0.0.6
+pyOnlineSpreadSheetEditing>=0.0.8
 # https://pypi.org/project/validators/
 validators>=0.18.2
 
