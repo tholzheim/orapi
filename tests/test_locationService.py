@@ -23,8 +23,8 @@ class TestLocationServiceBlueprint(TestWebServer):
         resp = self.client.post(url_for("location.enhanceLocations"), json=lods)
         actualLods = resp.json
         expected = {
-                "AAAI 2020": {"acronym": "AAAI 2020", "city":"US/CA/Los Angeles", "region":"US/CA", "country": "US"},
-                "AAAI 2021": {"acronym": "AAAI 2021", "city": "US/MA/Boston", "region":"US/MA", "country": "US"}
+                "AAAI 2020": {"acronym": "AAAI 2020", "city":"US/CA/Los Angeles", "region":"US/CA", "country": "US", 'countryWikidataId': 'Q30', 'cityWikidataId': 'Q65', 'regionWikidataId': 'Q99'},
+                "AAAI 2021": {"acronym": "AAAI 2021", "city": "US/MA/Boston", "region":"US/MA", "country": "US", 'countryWikidataId': 'Q30', 'cityWikidataId': 'Q100', 'regionWikidataId': 'Q771'}
         }
         for record in actualLods[OREvent.templateName]:
             self.assertDictEqual(expected[record['acronym']], record)

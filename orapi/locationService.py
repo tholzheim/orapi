@@ -353,15 +353,21 @@ class LocationService:
             event[self.CITY]=LocationFixer.getPageTitle(bestMatch)
             event[self.REGION] = LocationFixer.getPageTitle(bestMatch.region)
             event[self.COUNTRY] = LocationFixer.getPageTitle(bestMatch.country)
+            event[f"{self.CITY}WikidataId"] = bestMatch.wikidataid
+            event[f"{self.REGION}WikidataId"] = bestMatch.region.wikidataid
+            event[f"{self.COUNTRY}WikidataId"] = bestMatch.country.wikidataid
         elif isinstance(bestMatch, Region):
             #event[self.CITY] = None
             event[self.REGION] = LocationFixer.getPageTitle(bestMatch)
             event[self.COUNTRY] = LocationFixer.getPageTitle(bestMatch.country)
+            event[f"{self.REGION}WikidataId"] = bestMatch.wikidataid
+            event[f"{self.COUNTRY}WikidataId"] = bestMatch.country.wikidataid
             errors["city_unknown"] = f"Location information did not match any city"
         elif isinstance(bestMatch, Country):
             #event[self.CITY] = None
             #event[self.REGION] = None
             event[self.COUNTRY] = LocationFixer.getPageTitle(bestMatch)
+            event[f"{self.COUNTRY}WikidataId"] = bestMatch.wikidataid
             errors["region_unknown"] = f"Location information did not match any region or city"
         else:
             errors["country_unknown"] = f"Location information did not match any location"
