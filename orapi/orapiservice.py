@@ -126,7 +126,7 @@ class OrApi:
         Retries a list of all dblp event series
         """
         query = """
-        {{#ask: [[IsA::Event series]][[DblpSeries::+]] || [[Has_Bibliography::+]] || [[WikiCfpSeries::+]]
+        {{#ask: [[IsA::EventSeries]][[DblpSeries::+]] || [[Has_Bibliography::+]] || [[WikiCfpSeries::+]]
         | mainlabel=pageTitle
         |?title=title
         |?Homepage=homepage
