@@ -7,7 +7,6 @@ flask-dropzone
 wikirender>=0.0.41
 # https://pypi.org/project/pylodstorage/
 #pylodstorage>=0.1.10
-lxml #ToDo: seems to be missing in one of the imported modules
 bs4
 # http://pydispatcher.sourceforge.net/
 PyDispatcher
@@ -25,4 +24,3 @@ Flask~=2.0.2
 python-dateutil~=2.8.2
 tabulate~=0.8.9
 WTForms>=2.3.3
-setuptools~=57.0.0

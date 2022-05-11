@@ -1,7 +1,4 @@
-import io
 import os
-from io import BytesIO
-from tempfile import TemporaryDirectory
 import requests
 from fb4.app import AppWrap
 from flask import request, Response

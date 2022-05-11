@@ -1,5 +1,5 @@
 from corpus.datasources.openresearch import OREvent
-from onlinespreadsheet.tableediting import TableEditing
+from spreadsheet.tableediting import TableEditing
 
 from orapi.orapiservice import OrApi
 from orapi.validationService import HomepageValidator, OrdinalValidator

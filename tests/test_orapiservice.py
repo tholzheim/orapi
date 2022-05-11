@@ -3,7 +3,7 @@ from collections import Generator
 
 from corpus.datasources.openresearch import OREvent
 from lodstorage.lod import LOD
-from onlinespreadsheet.tableediting import TableEditing
+from spreadsheet.tableediting import TableEditing
 from onlinespreadsheet.tablequery import TableQuery
 from wikifile.wikiFileManager import WikiFileManager
 

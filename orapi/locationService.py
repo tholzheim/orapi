@@ -2,7 +2,7 @@ from corpus.datasources.openresearch import OREvent
 from flask import Blueprint, jsonify, request
 from geograpy.locator import LocationContext, Region, Country, Location, City, Locator
 from lodstorage.sql import SQLDB
-from onlinespreadsheet.tableediting import TableEditing
+from spreadsheet.tableediting import TableEditing
 from ormigrate.issue220_location import LocationFixer
 
 

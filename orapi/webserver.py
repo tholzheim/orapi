@@ -1,5 +1,4 @@
 import datetime
-import json
 import os
 import sys
 from enum import Enum, auto
@@ -7,13 +6,12 @@ from io import BytesIO
 from os import path
 from time import sleep
 
-import requests
 from fb4.app import AppWrap
 from fb4.sse_bp import SSE_BluePrint, DictStreamResult, DictStreamFileResult
 from fb4.widgets import DropZoneField, ButtonField, Menu, MenuItem, LodTable, Link
 from flask_wtf import FlaskForm
 from markupsafe import Markup
-from onlinespreadsheet.spreadsheet import SpreadSheetType, ExcelDocument, OdsDocument
+from spreadsheet.spreadsheet import SpreadSheetType, ExcelDocument, OdsDocument
 from werkzeug.exceptions import Unauthorized
 from wikibot.wikiclient import WikiClient
 from wtforms import SelectField, SubmitField, BooleanField, StringField

@@ -1,5 +1,4 @@
 import uuid
-from unittest import TestCase
 
 from orapi.utils import PageHistory
 from tests.basetest import Basetest
