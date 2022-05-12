@@ -102,5 +102,7 @@ class TestValidationService(Basetest):
         """
         tests isArchivedUrl
         """
+        if self.inCI():
+            return
         url = "www.aaai.org/Conferences/AAAI-22/"
         self.assertTrue(HomepageValidator.isArchivedUrl(url))
