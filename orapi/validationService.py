@@ -6,7 +6,7 @@ import validators
 from corpus.datasources.openresearch import OREvent, OREventSeries
 from fb4.widgets import Link
 from flask import Blueprint, request, jsonify
-from onlinespreadsheet.tableediting import TableEditing
+from spreadsheet.tableediting import TableEditing
 
 
 class ValidationBlueprint(object):
