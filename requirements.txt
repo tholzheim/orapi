@@ -8,15 +8,10 @@ wikirender>=0.0.41
 # https://pypi.org/project/pylodstorage/
 #pylodstorage>=0.1.10
 bs4
-# http://pydispatcher.sourceforge.net/
-PyDispatcher
-# https://pypi.org/project/APScheduler/
-APScheduler
 # https://github.com/WolfgangFahl/pyOnlineSpreadSheetEditing
 pyOnlineSpreadSheetEditing>=0.0.8
 # https://pypi.org/project/validators/
 validators>=0.18.2
-
 OpenResearchMigration>=0.0.30
 
 requests~=2.26.0
