@@ -1,5 +1,5 @@
 import datetime
-from collections import Generator
+from collections.abc import Generator
 
 from corpus.datasources.openresearch import OREvent
 from lodstorage.lod import LOD

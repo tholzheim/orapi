@@ -1,10 +1,7 @@
 import copy
 import json
 import re
-try:
-    from collections.abc import Generator
-except ImportError:
-    from collections import Generator
+from collections.abc import Generator
 from datetime import datetime
 from functools import partial
 from time import sleep
