@@ -9,7 +9,7 @@ wikirender>=0.0.43
 #pylodstorage>=0.1.10
 bs4
 # https://github.com/WolfgangFahl/pyOnlineSpreadSheetEditing
-pyOnlineSpreadSheetEditing>=0.0.8
+pyOnlineSpreadSheetEditing>=0.0.17
 # https://pypi.org/project/validators/
 validators>=0.18.2
 OpenResearchMigration>=0.0.30
