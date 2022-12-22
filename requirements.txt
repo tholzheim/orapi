@@ -4,7 +4,7 @@ flask-dropzone
 # https://github.com/SmartDataAnalytics/OpenResearch
 #ConferenceCorpus>=0.0.29
 # https://pypi.org/project/wikirender/
-wikirender>=0.0.41
+wikirender>=0.0.43
 # https://pypi.org/project/pylodstorage/
 #pylodstorage>=0.1.10
 bs4
@@ -13,9 +13,8 @@ pyOnlineSpreadSheetEditing>=0.0.8
 # https://pypi.org/project/validators/
 validators>=0.18.2
 OpenResearchMigration>=0.0.30
-
-requests~=2.26.0
-Flask~=2.0.2
-python-dateutil~=2.8.2
-tabulate~=0.8.9
+requests>=2.26.0
+Flask>=2.0.2
+python-dateutil>=2.8.2
+tabulate>=0.8.9
 WTForms>=2.3.3
