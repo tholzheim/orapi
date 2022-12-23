@@ -16,7 +16,7 @@ from onlinespreadsheet.tablequery import TableQuery
 from spreadsheet.spreadsheet import SpreadSheet
 from spreadsheet.tableediting import TableEditing
 from werkzeug.exceptions import Unauthorized
-from wikibot.wikiuser import WikiUser
+from wikibot3rd.wikiuser import WikiUser
 from wikifile.wikiFile import WikiFile
 from wikifile.wikiFileManager import WikiFileManager
 from orapi.locationService import LocationService

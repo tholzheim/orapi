@@ -13,7 +13,7 @@ from flask_wtf import FlaskForm
 from markupsafe import Markup
 from spreadsheet.spreadsheet import SpreadSheetType, ExcelDocument, OdsDocument
 from werkzeug.exceptions import Unauthorized
-from wikibot.wikiclient import WikiClient
+from wikibot3rd.wikiclient import WikiClient
 from wtforms import SelectField, SubmitField, BooleanField, StringField
 from wtforms.widgets import Select as Select
 

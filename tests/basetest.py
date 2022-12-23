@@ -9,7 +9,7 @@ import getpass
 import os
 
 from corpus.eventcorpus import EventCorpus
-from wikibot.wikiuser import WikiUser
+from wikibot3rd.wikiuser import WikiUser
 from wikifile.wikiFileManager import WikiFileManager
 
 
