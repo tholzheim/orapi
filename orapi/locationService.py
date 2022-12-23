@@ -3,7 +3,6 @@ from flask import Blueprint, jsonify, request
 from geograpy.locator import LocationContext, Region, Country, Location, City, Locator
 from lodstorage.sql import SQLDB
 from spreadsheet.tableediting import TableEditing
-from ormigrate.issue220_location import LocationFixer
 
 
 class LocationServiceBlueprint(object):
@@ -305,7 +304,7 @@ class LocationService:
         return [record.get('label') for record in queryRes]
 
 
-    def lookupLocation(self, countryName:str=None, regionName:str=None, cityName:str=None):
+    def lookupLocation(self, countryName: str = None, regionName: str = None, cityName: str = None):
         '''
         Uses geograpy3 to find locations matching the given information
         Args:
@@ -336,7 +335,7 @@ class LocationService:
         bestMatch = self.getMatchingLocation(**eventPlaces)
         return bestMatch
 
-    def fixLocationOfEventRecord(self, event:dict, errors:dict=None):
+    def fixLocationOfEventRecord(self, event: dict, errors: dict = None):
         '''
         Args:
             event(dict): event records containing the location values that should be fixed
@@ -350,23 +349,23 @@ class LocationService:
 
         bestMatch=self.lookupLocation(eventCountry, eventRegion, eventCity)
         if isinstance(bestMatch, City):
-            event[self.CITY]=LocationFixer.getPageTitle(bestMatch)
-            event[self.REGION] = LocationFixer.getPageTitle(bestMatch.region)
-            event[self.COUNTRY] = LocationFixer.getPageTitle(bestMatch.country)
+            event[self.CITY]=self.getPageTitle(bestMatch)
+            event[self.REGION] = self.getPageTitle(bestMatch.region)
+            event[self.COUNTRY] = self.getPageTitle(bestMatch.country)
             event[f"{self.CITY}WikidataId"] = bestMatch.wikidataid
             event[f"{self.REGION}WikidataId"] = bestMatch.region.wikidataid
             event[f"{self.COUNTRY}WikidataId"] = bestMatch.country.wikidataid
         elif isinstance(bestMatch, Region):
             #event[self.CITY] = None
-            event[self.REGION] = LocationFixer.getPageTitle(bestMatch)
-            event[self.COUNTRY] = LocationFixer.getPageTitle(bestMatch.country)
+            event[self.REGION] = self.getPageTitle(bestMatch)
+            event[self.COUNTRY] = self.getPageTitle(bestMatch.country)
             event[f"{self.REGION}WikidataId"] = bestMatch.wikidataid
             event[f"{self.COUNTRY}WikidataId"] = bestMatch.country.wikidataid
             errors["city_unknown"] = f"Location information did not match any city"
         elif isinstance(bestMatch, Country):
             #event[self.CITY] = None
             #event[self.REGION] = None
-            event[self.COUNTRY] = LocationFixer.getPageTitle(bestMatch)
+            event[self.COUNTRY] = self.getPageTitle(bestMatch)
             event[f"{self.COUNTRY}WikidataId"] = bestMatch.wikidataid
             errors["region_unknown"] = f"Location information did not match any region or city"
         else:
@@ -375,3 +374,37 @@ class LocationService:
             #event[self.REGION] = None
             #event[self.COUNTRY] = None
         return event, errors
+
+    @staticmethod
+    def getPageTitle(location: Location):
+        '''
+        Returns the wiki page title for the given location
+        The hierarchy of the location is hereby represented in the page title
+        The page titles are constructed as follows:
+            -Countries: country_isocode     e.g. US
+            -Regions: country_isocode/region_isocode    e.g US/CA
+            -Cities: country_isocode/region_isocode/city_name   e.g. US/CA/Los_Angeles
+
+        Args:
+            location(Location): location for which the corresponding wiki pageTitle should be returned
+
+        Returns:
+            wiki pageTitle of the given location as string
+        '''
+        pageTitle = None
+        if isinstance(location, City):
+            countryPart = getattr(location.country, 'iso')
+            regionPart = getattr(location.region, 'iso').split('-')[1] if '-' in getattr(location.region,
+                                                                                         'iso') else getattr(
+                location.region, 'iso')
+            pageTitle = f"{countryPart}/{regionPart}/{getattr(location, 'name')}"
+        elif isinstance(location, Region):
+            countryPart = getattr(location.country, 'iso')
+            regionPart = getattr(location, 'iso').split('-')[1] if '-' in getattr(location, 'iso') else getattr(
+                location, 'iso')
+            pageTitle = f"{countryPart}/{regionPart}"
+        elif isinstance(location, Country):
+            pageTitle = getattr(location, 'iso')
+        else:
+            pageTitle = location.name
+        return pageTitle

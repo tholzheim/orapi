@@ -12,7 +12,6 @@ bs4
 pyOnlineSpreadSheetEditing>=0.0.17
 # https://pypi.org/project/validators/
 validators>=0.18.2
-OpenResearchMigration>=0.0.30
 requests>=2.26.0
 Flask>=2.0.2
 python-dateutil>=2.8.2

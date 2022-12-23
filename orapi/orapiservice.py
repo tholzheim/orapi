@@ -11,22 +11,21 @@ import dateutil.parser
 import requests
 from corpus.datasources.openresearch import OREvent, OREventSeries
 from fb4.widgets import Link, Image, LodTable
-from lodstorage.jsonable import JSONAble
 from lodstorage.lod import LOD
 from onlinespreadsheet.tablequery import TableQuery
-from ormigrate.fixer import ORFixer
-from ormigrate.smw.pagefixer import PageFixerManager
-from ormigrate.smw.rating import EntityRating
 from spreadsheet.spreadsheet import SpreadSheet
 from spreadsheet.tableediting import TableEditing
 from werkzeug.exceptions import Unauthorized
 from wikibot.wikiuser import WikiUser
 from wikifile.wikiFile import WikiFile
 from wikifile.wikiFileManager import WikiFileManager
-from corpus.smw.topic import SMWEntity
-
 from orapi.locationService import LocationService
 from orapi.utils import WikiUserInfo, PageHistory
+# from ormigrate.fixer import ORFixer
+# from ormigrate.smw.pagefixer import PageFixerManager
+# from ormigrate.smw.rating import EntityRating
+# from corpus.smw.topic import SMWEntity
+# from lodstorage.jsonable import JSONAble
 
 
 class WikiTableEditing(TableEditing):
@@ -703,66 +702,66 @@ class OrApiService:
         if enhancerURLs is not None:
             self.enhancerURLs = {**self.enhancerURLs, **enhancerURLs}
 
-
-class OrMigrateWrapper(object):
-    """
-    Wrapper for ormigrate to use the fixers as Enhancement callbacks
-    """
-
-    @staticmethod
-    def getOrMigrateFixers(wikiid:str)->dict:
-        """
-        Args:
-            wikiid(str): id of the wiki
-
-        Returns dict of all ormigrate fixers that have a fixer class
-        """
-        fixers={}
-        wikiFileManager=WikiFileManager(sourceWikiId=wikiid, login=False)
-        excludedFixers = ["WikiCfpIdSeriesFixer", "CountryFixer"]
-        manager = PageFixerManager(pageFixerClassList=[f for f in PageFixerManager.getAllFixers() if f.__name__ not in excludedFixers], ccID=None, wikiFileManager=wikiFileManager)
-        fixersWithFixFn = {k:f for k,f in manager.pageFixers.items() if PageFixerManager.hasFixer(f)}
-        for name, fixer in fixersWithFixFn.items():
-            fixers[name]=partial(OrMigrateWrapper._applyFixer, fixer=fixer)
-        return fixers
-
-    @staticmethod
-    def _getEntityRatingForRecord(record: dict, wikiFile:WikiFile) -> EntityRating:
-        '''
-        creates EntityRating for given record
-        '''
-        entity = JSONAble()
-        entity.__dict__.update(record)
-        smwHandler = SMWEntity(entity=entity, wikiFile=wikiFile)
-        setattr(entity, "smwHandler", smwHandler)
-        entityRating = EntityRating(entity)
-
-        return entityRating
-
-    @staticmethod
-    def _applyFixer(tableEditing:WikiTableEditing, fixer:ORFixer) -> WikiTableEditing:
-        """
-        Applies the given fixer to the given tableEditing
-        Args:
-            tableEditing: table to be fixed
-            fixer: fixer to be applied
-
-        Returns:
-            fixed TableEditing object
-        """
-        wikiFiles={}
-        fixedRecords=[]
-        if hasattr(tableEditing, "wikiFiles"):
-            wikiFiles=tableEditing.wikiFiles
-
-        for entityType in [OrApi.EVENT_TEMPLATE_NAME, OrApi.SERIES_TEMPLATE_NAME]:
-            if entityType not in fixer.worksOn:
-                continue
-            for eventRecord in tableEditing.lods[OrApi.EVENT_TEMPLATE_NAME]:
-                pageTitle=eventRecord.get("pageTitle")
-                wikiFile=wikiFiles.get(pageTitle,None)
-                entity=OrMigrateWrapper._getEntityRatingForRecord(eventRecord, wikiFile)
-                fixer.fix(entity)
-                fixedRecords.append(entity.getRecord())
-            tableEditing.lods[OrApi.EVENT_TEMPLATE_NAME]=fixedRecords
-        return tableEditing
+#
+# class OrMigrateWrapper(object):
+#     """
+#     Wrapper for ormigrate to use the fixers as Enhancement callbacks
+#     """
+#
+#     @staticmethod
+#     def getOrMigrateFixers(wikiid:str)->dict:
+#         """
+#         Args:
+#             wikiid(str): id of the wiki
+#
+#         Returns dict of all ormigrate fixers that have a fixer class
+#         """
+#         fixers={}
+#         wikiFileManager=WikiFileManager(sourceWikiId=wikiid, login=False)
+#         excludedFixers = ["WikiCfpIdSeriesFixer", "CountryFixer"]
+#         manager = PageFixerManager(pageFixerClassList=[f for f in PageFixerManager.getAllFixers() if f.__name__ not in excludedFixers], ccID=None, wikiFileManager=wikiFileManager)
+#         fixersWithFixFn = {k:f for k,f in manager.pageFixers.items() if PageFixerManager.hasFixer(f)}
+#         for name, fixer in fixersWithFixFn.items():
+#             fixers[name]=partial(OrMigrateWrapper._applyFixer, fixer=fixer)
+#         return fixers
+#
+#     @staticmethod
+#     def _getEntityRatingForRecord(record: dict, wikiFile: WikiFile) -> EntityRating:
+#         """
+#         creates EntityRating for given record
+#         """
+#         entity = JSONAble()
+#         entity.__dict__.update(record)
+#         smwHandler = SMWEntity(entity=entity, wikiFile=wikiFile)
+#         setattr(entity, "smwHandler", smwHandler)
+#         entityRating = EntityRating(entity)
+#
+#         return entityRating
+#
+#     @staticmethod
+#     def _applyFixer(tableEditing:WikiTableEditing, fixer:ORFixer) -> WikiTableEditing:
+#         """
+#         Applies the given fixer to the given tableEditing
+#         Args:
+#             tableEditing: table to be fixed
+#             fixer: fixer to be applied
+#
+#         Returns:
+#             fixed TableEditing object
+#         """
+#         wikiFiles={}
+#         fixedRecords=[]
+#         if hasattr(tableEditing, "wikiFiles"):
+#             wikiFiles=tableEditing.wikiFiles
+#
+#         for entityType in [OrApi.EVENT_TEMPLATE_NAME, OrApi.SERIES_TEMPLATE_NAME]:
+#             if entityType not in fixer.worksOn:
+#                 continue
+#             for eventRecord in tableEditing.lods[OrApi.EVENT_TEMPLATE_NAME]:
+#                 pageTitle=eventRecord.get("pageTitle")
+#                 wikiFile=wikiFiles.get(pageTitle,None)
+#                 entity=OrMigrateWrapper._getEntityRatingForRecord(eventRecord, wikiFile)
+#                 fixer.fix(entity)
+#                 fixedRecords.append(entity.getRecord())
+#             tableEditing.lods[OrApi.EVENT_TEMPLATE_NAME]=fixedRecords
+#         return tableEditing
